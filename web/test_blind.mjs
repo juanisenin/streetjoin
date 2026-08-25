@@ -3,7 +3,8 @@ const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", a
 const pg = await b.newPage();
 const errs = [];
 pg.on("pageerror", e => errs.push(String(e)));
-await pg.goto("file:///root/StreetJoin/web/streetjoin.html");
+const GAME = new URL("../index.html", import.meta.url).href;
+await pg.goto(GAME);
 await pg.waitForFunction(() => window.__gameReady === true, null, { timeout: 30000 });
 let fails = 0;
 const ok = (c, m) => { if (!c) fails++; console.log((c ? "✓" : "✗ FALLO") + " " + m); };
