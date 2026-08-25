@@ -9,7 +9,7 @@ Ciudad actual: **Gran Santiago**, con datos de OpenStreetMap.
 
 ## Jugar
 
-**👉 __PAGES_URL__**
+**👉 [Jugar a StreetJoin](https://juanisenin.github.io/streetjoin/)**
 
 Anda en celular y en compu, sin instalar nada. También podés abrir `index.html`
 directamente: es un archivo autocontenido (Leaflet y los datos van embebidos); lo único
