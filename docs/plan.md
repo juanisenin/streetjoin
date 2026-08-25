@@ -2,6 +2,8 @@
 
 *Un juego para aprenderse las calles de una ciudad, conectando dos puntos nombrando las calles que los unen (inspirado en Travle). Primera ciudad: Santiago de Chile.*
 
+**▶ Jugable en https://juanisenin.github.io/streetjoin/**
+
 ---
 
 ## 1. Concepto del juego
@@ -44,7 +46,7 @@ La ciudad se modela como un **grafo de calles**: los nodos son intersecciones y 
 | Pipeline de datos | Python + `pyrosm` + `networkx` (corre una sola vez por ciudad) |
 | Frontend | HTML + JS puro + **Leaflet**, un solo archivo autocontenido |
 | Mapa base | Teselas gratuitas de CARTO |
-| Hosting | GitHub Pages o Vercel (decidir en Fase 4) |
+| Hosting | **GitHub Pages** — `index.html` en la raíz de `main` |
 | **Backend del daily** | **Pendiente** — ver Fase 5 |
 
 ## 4. Fases
@@ -56,6 +58,12 @@ Pipeline OSM → `city.json` con todo el Gran Santiago. Ver `fase1-datos.md`.
 ### Fase 2 — Prototipo jugable ✅ (varias sesiones)
 Motor del juego, mapa, autocompletado, modo ciego, lugares icónicos, dibujo estilo navegador, cruces a distinto nivel, camino final animado y la reestructuración en modos con menú principal. Todo el detalle en `fase2-prototipo.md`.
 
+### Fase 4 — Deploy ✅ (2026-08-25)
+Publicado en **https://juanisenin.github.io/streetjoin/** desde el repo
+[juanisenin/streetjoin](https://github.com/juanisenin/streetjoin): `index.html` en la raíz
+de `main`, y cada push republica solo. Incluye el arreglo del layout en celular (la barra
+de entrada forzaba un zoom-out de toda la página). Detalle en `fase4-deploy.md`.
+
 ### Fase 3 — Desafío diario (próxima)
 1. **Puzzle del día**: semilla derivada de la fecha (UTC−4) para que todos jueguen el mismo. Se juega una sola vez por día, en el modo principal (ciego + lugares).
 2. **Dos leaderboards, sin nombres**: son **distribuciones de frecuencia**, para ver en qué parte de la población caíste.
@@ -63,9 +71,6 @@ Motor del juego, mapa, autocompletado, modo ciego, lugares icónicos, dibujo est
    - *Menor tiempo*: bins **autocalculados a partir de los resultados del día** (no fijos), para que la distribución se lea bien tenga la forma que tenga.
 3. **Compartir** el resultado estilo Wordle.
 4. **Backend**: decidido *sin backend por ahora* — se arma toda la UI contra datos locales, con la capa de red aislada detrás de una interfaz chica (`submitResult` / `fetchDistribution`) para enchufarle Supabase o similar después.
-
-### Fase 4 — Deploy
-Repo en GitHub, estructura limpia, README, y GitHub Pages o Vercel.
 
 ### Fase 5 — Futuro
 Rachas y estadísticas locales, más comunas o ciudades, dificultades.
