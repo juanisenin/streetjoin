@@ -1,0 +1,2055 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>StreetJoin — Santiago</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --bg: #fafaf9; --panel: #ffffff; --ink: #1c1917; --muted: #78716c;
+    --line: #e7e5e4; --accent: #0f766e;
+    /* Paleta Okabe-Ito: distinguible con cualquier tipo de daltonismo.
+       Además cada estado lleva su propio trazo y símbolo, para no depender
+       nunca solo del color. */
+    --good: #0072B2; --warn: #E69F00; --bad: #CC79A7; --opt: #444444;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--ink);
+    display: flex; flex-direction: column;
+  }
+  header {
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 18px; letter-spacing: -0.02em; }
+  header h1 span { color: var(--accent); }
+  #objective { font-size: 13.5px; color: var(--muted); }
+  #objective b { color: var(--ink); font-weight: 600; }
+  #map { flex: 1; min-height: 0; background: #eceae6; }
+  #panel {
+    background: var(--panel); border-top: 1px solid var(--line);
+    padding: 10px 16px 14px; display: flex; flex-direction: column; gap: 8px;
+  }
+  #inputrow { display: flex; gap: 8px; position: relative; }
+  #guess {
+    flex: 1; font-size: 16px; padding: 10px 12px; border: 1.5px solid var(--line);
+    border-radius: 10px; outline: none; background: var(--bg);
+  }
+  #guess:focus { border-color: var(--accent); }
+  #guess.shake { animation: shake .3s; border-color: var(--bad); }
+  @keyframes shake { 25% {transform: translateX(-5px);} 75% {transform: translateX(5px);} }
+  button {
+    font-size: 15px; padding: 10px 18px; border: none; border-radius: 10px;
+    background: var(--accent); color: #fff; cursor: pointer; font-weight: 600;
+  }
+  button.secondary { background: var(--bg); color: var(--ink); border: 1.5px solid var(--line); }
+  button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #map.picking { cursor: crosshair; }
+  #map.picking .leaflet-interactive { cursor: crosshair; }
+  #suggest {
+    position: absolute; bottom: 100%; left: 0; right: 90px; margin-bottom: 6px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.08); overflow: hidden; display: none; z-index: 1000;
+  }
+  #suggest div { padding: 9px 12px; font-size: 14.5px; cursor: pointer; }
+  #suggest div.sel { background: #f0fdfa; }
+  #suggest b { color: var(--accent); }
+  .sug-alias { color: var(--muted); font-size: 12.5px; margin-left: 6px; }
+  #status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 24px; }
+  #tries { font-size: 13.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #msg { font-size: 13.5px; }
+  #chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    font-size: 12.5px; padding: 3px 10px; border-radius: 999px; color: #fff; font-weight: 500;
+  }
+  /* marca del extremo que toca la calle, con el color de ese extremo */
+  .chip i.end { font-style: normal; font-weight: 700; font-size: 11px; margin-left: 6px;
+                padding: 1px 6px; border-radius: 999px; box-shadow: 0 0 0 1.5px rgba(255,255,255,.85); }
+  #overlay {
+    position: absolute; inset: 0; z-index: 2000; display: none;
+    background: rgba(28,25,23,.45); align-items: center; justify-content: center; padding: 20px;
+  }
+  #overlay .card {
+    background: var(--panel); border-radius: 16px; padding: 24px 28px; max-width: 420px;
+    text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  }
+  #overlay h2 { font-size: 22px; margin-bottom: 6px; }
+  #overlay .row { display: flex; gap: 8px; justify-content: center; }
+  #overlay p { font-size: 14.5px; color: var(--muted); margin-bottom: 14px; line-height: 1.45; }
+  #settings {
+    display: none; position: absolute; right: 16px; bottom: 62px; z-index: 1500;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.14); padding: 14px 16px; max-width: 330px;
+  }
+  #settings.open { display: block; }
+  #settings h3 { font-size: 14px; margin-bottom: 10px; }
+  #settings label {
+    display: flex; gap: 9px; align-items: flex-start; font-size: 13px;
+    line-height: 1.35; color: var(--muted); cursor: pointer; margin-bottom: 10px;
+  }
+  #settings label b { color: var(--ink); font-weight: 600; }
+  #settings input { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--accent); }
+  #settings .note { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line);
+                    padding-top: 9px; }
+  #settings #blindNote { border-top: 0; padding-top: 0; }
+  #settings h3 + #modes { margin-bottom: 6px; }
+  #modes { display: flex; gap: 6px; }
+  #modes button { flex: 1; font-size: 13px; padding: 8px 10px; background: var(--bg);
+                  color: var(--ink); border: 1.5px solid var(--line); }
+  #modes button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #settings .hint { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+  #settings label.dim { opacity: .4; cursor: not-allowed; }
+  #blindRow { border-top: 1px solid var(--line); padding-top: 10px; }
+  .lmk { font-size: 17px; line-height: 26px; text-align: center; width: 26px; height: 26px;
+         background: #fff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .lmk.pickable { cursor: pointer; transition: transform .12s; }
+  .lmk.pickable:hover { transform: scale(1.2); box-shadow: 0 0 0 3px var(--accent); }
+  .lmk.ep { box-shadow: 0 0 0 3px var(--ring, var(--accent)), 0 2px 8px rgba(0,0,0,.35); }
+  #legend, #legendBlind { list-style: none; font-size: 12.5px; color: var(--muted);
+                          padding: 0; margin: 0; }
+  #legend li, #legendBlind li { display: flex; align-items: center; gap: 7px;
+                                margin-bottom: 5px; }
+  #legend b, #legendBlind b { color: var(--ink); width: 12px; text-align: center; }
+  #legend em { font-style: normal; opacity: .8; }
+  #legend i, #legendBlind i { width: 30px; height: 0; flex: none; border-top-width: 4px; }
+  #legend i.solid, #legendBlind i.solid { border-top-style: solid; }
+  #legend i.dash,  #legendBlind i.dash  { border-top-style: dashed; }
+  #legend i.dot,   #legendBlind i.dot   { border-top-style: dotted; border-top-width: 5px; }
+  /* muestras del degradado de extremo: color del lugar -> color del estado */
+  #legend i.gradA, #legendBlind i.gradA, #legend i.gradB, #legendBlind i.gradB {
+    height: 6px; border: 0; border-radius: 3px; }
+  #legend i.gradA, #legendBlind i.gradA { background: linear-gradient(90deg,#009E73,#0072B2); }
+  #legend i.gradB, #legendBlind i.gradB { background: linear-gradient(90deg,#D55E00,#0072B2); }
+  /* ---------- Menú principal ---------- */
+  #menu {
+    position: fixed; inset: 0; z-index: 3000; display: none;
+    align-items: center; justify-content: center; padding: 20px;
+    background: rgba(28,25,23,.55); backdrop-filter: blur(3px);
+  }
+  #menu.open { display: flex; }
+  #menu .mcard {
+    background: var(--panel); border-radius: 18px; padding: 26px 26px 20px;
+    width: 100%; max-width: 430px; max-height: 100%; overflow: auto;
+    box-shadow: 0 24px 70px rgba(0,0,0,.3);
+  }
+  #menu h2 { font-size: 26px; letter-spacing: -.02em; }
+  #menu h2 span { color: var(--accent); }
+  #menu .sub { font-size: 13.5px; color: var(--muted); margin: 6px 0 18px; line-height: 1.45; }
+  #menu .go {
+    display: block; width: 100%; text-align: left; margin-bottom: 9px; font: inherit;
+    background: var(--bg); color: var(--ink); border: 1.5px solid var(--line);
+    border-radius: 12px; padding: 12px 14px; cursor: pointer;
+    transition: border-color .12s, transform .12s;
+  }
+  #menu .go:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+  #menu .go:disabled { opacity: .5; cursor: default; }
+  #menu .go b { display: block; font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+  #menu .go em { font-style: normal; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+  #menu .go.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #menu .go.primary em { color: rgba(255,255,255,.88); }
+  #menu .best { font-weight: 600; }
+  #menu .foot { font-size: 12px; color: var(--muted); margin-top: 12px; text-align: center; }
+  .leaflet-container { font: inherit; }
+  .ptlabel.epA { background: #00654A; }
+  .ptlabel.epB { background: #8A3D00; }
+  .ptlabel { background: var(--ink); color: #fff; border-radius: 8px; padding: 2px 8px;
+             font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+</style>
+</head>
+<body>
+<div id="menu">
+  <div class="mcard">
+    <h2>Street<span>Join</span></h2>
+    <p class="sub">Conectá dos puntos de Santiago nombrando las calles que los unen.</p>
+    <button class="go primary" data-go="lugares">
+      <b>🕶️ Lugares a ciegas</b>
+      <em>El modo principal: dos lugares icónicos, el mapa sin nombres y un
+      cronómetro.<span class="best" data-best="places"></span></em>
+    </button>
+    <button class="go" data-go="daily" disabled>
+      <b>📅 Desafío diario</b>
+      <em>El mismo puzzle para todos, una vez por día, con la distribución de
+      resultados. Pronto.</em>
+    </button>
+    <button class="go" data-go="esquinas">
+      <b>🚦 Esquinas a ciegas</b>
+      <em>Lo mismo pero entre dos esquinas cualquiera de la
+      ciudad.<span class="best" data-best="corners"></span></em>
+    </button>
+    <button class="go" data-go="practica">
+      <b>🎓 Práctica</b>
+      <em>Con los nombres a la vista, sin reloj, y podés elegir vos los dos
+      puntos. Para aprenderse la ciudad sin apuro.</em>
+    </button>
+    <p class="foot">Volvés acá cuando quieras con el botón 🏠.</p>
+  </div>
+</div>
+<header>
+  <h1>Street<span>Join</span> · Gran Santiago</h1>
+  <div id="objective"></div>
+</header>
+<div id="map"></div>
+<div id="panel">
+  <div id="status">
+    <span id="tries"></span>
+    <span id="msg"></span>
+    <span id="chips"></span>
+  </div>
+  <div id="inputrow">
+    <div id="suggest"></div>
+    <input id="guess" type="text" placeholder="Escribe el nombre de una calle…"
+           autocomplete="off" autocorrect="off" spellcheck="false">
+    <button id="go">Probar</button>
+    <button id="res" class="secondary" title="Ver el resultado" style="display:none">🏁</button>
+    <button id="pick" class="secondary" title="Elegir los dos puntos en el mapa">📍</button>
+    <button id="new" class="secondary" title="Puzzle al azar">↻</button>
+    <button id="home" class="secondary" title="Volver al menú">🏠</button>
+    <button id="cog" class="secondary" title="Opciones de accesibilidad"
+            aria-haspopup="true" aria-expanded="false">⚙</button>
+  </div>
+  <div id="settings" role="dialog" aria-label="Opciones">
+    <div id="modesRow">
+      <h3>Qué conectar</h3>
+      <div id="modes" role="radiogroup">
+        <button data-mode="corners" role="radio" aria-checked="false">Esquinas</button>
+        <button data-mode="places" class="on" role="radio" aria-checked="true">🏛️ Lugares</button>
+      </div>
+      <p class="hint" id="modeHint">Conectá dos lugares icónicos. Con 📍 los elegís vos.</p>
+    </div>
+    <div id="practiceOpts">
+      <h3>Accesibilidad</h3>
+      <label><input type="checkbox" id="optClick">
+        <span><b>Jugar con clics en el mapa</b><br>
+        Elegí las calles apuntándolas, sin necesidad de escribir.</span></label>
+      <label><input type="checkbox" id="optNames">
+        <span><b>Mostrar el nombre al apuntar</b><br>
+        Aparece el nombre de la calle bajo el cursor. Hace el juego más fácil.</span></label>
+      <p class="note">Al terminar una partida ambas quedan activas para explorar el mapa.</p>
+    </div>
+    <p class="note" id="blindNote">A ciegas no hay ayudas: el mapa va sin nombres hasta que
+    cierres el camino. Ahí vuelven, y podés recorrerlo apuntando las calles.</p>
+    <h3 style="margin-top:12px">Referencia</h3>
+    <ul id="legend">
+      <li><i class="solid" style="border-color:#0072B2"></i><b>✓</b> en la ruta óptima</li>
+      <li><i class="dash" style="border-color:#E69F00"></i><b>≈</b> cerca de la ruta</li>
+      <li><i class="dot" style="border-color:#CC79A7"></i><b>✕</b> lejos de la ruta</li>
+      <li><i class="gradA"></i><b>A</b> toca el extremo A</li>
+      <li><i class="gradB"></i><b>B</b> toca el extremo B</li>
+    </ul>
+    <ul id="legendBlind" style="display:none">
+      <li><i class="solid" style="border-color:#0072B2"></i><b>✓</b> conectada a tu camino</li>
+      <li><i class="dot" style="border-color:#6b7280"></i><b>○</b> todavía suelta</li>
+      <li><i class="gradA"></i><b>A</b> toca el extremo A</li>
+      <li><i class="gradB"></i><b>B</b> toca el extremo B</li>
+    </ul>
+  </div>
+</div>
+<div id="overlay"><div class="card">
+  <h2 id="ovTitle"></h2><p id="ovText"></p>
+  <div class="row">
+    <button id="ovMap" class="secondary">Ver el mapa</button>
+    <button id="ovMenu" class="secondary">Menú</button>
+    <button id="ovNew">Jugar otro</button>
+  </div>
+</div></div>
+
+<script>
+const CITY = __CITY_DATA__;
+</script>
+<script>
+"use strict";
+// ---------- Normalización (misma que el pipeline) ----------
+const PREFIX = /^(avenida|av|avda|calle|pasaje|pje|psje|paseo|camino|autopista|general|gral) /;
+function normalize(s) {
+  s = s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  s = s.replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  return s;
+}
+// Abreviaturas que la gente escribe pero que no están en el nombre de la calle.
+// Solo las que no son ambiguas: "pte" queda afuera porque tanto puede ser
+// presidente como puente.
+const ABBR = {
+  av: "avenida", avda: "avenida", avd: "avenida",
+  gral: "general", grl: "general",
+  pje: "pasaje", psje: "pasaje",
+  cno: "camino",
+  dr: "doctor", dra: "doctora", pdte: "presidente",
+  sta: "santa", sto: "santo",
+  prof: "profesor", cnel: "coronel", tte: "teniente", ing: "ingeniero",
+};
+// "av pdte kennedy" -> "avenida presidente kennedy". Se expande token por token
+// y no solo el primero, porque las abreviaturas también caen en el medio.
+const expandAbbr = n => n.split(" ").map(t => ABBR[t] || t).join(" ");
+
+function keysOf(input) {
+  const out = new Set();
+  let n = normalize(input);
+  if (!n) return out;
+  out.add(n);
+  let st = n.replace(PREFIX, "");
+  while (st !== n) { n = st; out.add(n); st = n.replace(PREFIX, ""); }
+  return out;
+}
+
+// ---------- Índices ----------
+const S = CITY.streets, INT = CITY.intersections;
+// Lugares icónicos: [lon, lat, nombre, ícono, [calles vecinas]]
+const LMK = CITY.landmarks || [];
+const keyIndex = new Map();          // clave normalizada -> [street idx]
+const SPACELESS = new Set();         // variantes sin espacios (no mostrarlas como alias)
+function addKey(k, i) {
+  if (!keyIndex.has(k)) keyIndex.set(k, []);
+  if (!keyIndex.get(k).includes(i)) keyIndex.get(k).push(i);
+}
+S.forEach((s, i) => {
+  const ks = keysOf(s.n);            // claves derivadas del nombre (no viajan en el JSON)
+  s.k.forEach(k => ks.add(k));       // + alias reales de OSM
+  for (const k of ks) {
+    addKey(k, i);
+    const ns = k.replace(/ /g, "");  // "o higgins" -> "ohiggins"
+    if (ns !== k) { addKey(ns, i); SPACELESS.add(ns); }
+  }
+});
+
+function bfs(sources) {              // distancias en nº de calles (fuente = 1)
+  const d = new Int16Array(S.length).fill(-1);
+  let q = [];
+  for (const s of sources) if (d[s] < 0) { d[s] = 1; q.push(s); }
+  while (q.length) {
+    const nq = [];
+    for (const u of q) for (const v of S[u].a) if (d[v] < 0) { d[v] = d[u] + 1; nq.push(v); }
+    q = nq;
+  }
+  return d;
+}
+
+// ---------- Estado ----------
+let game = null;
+// Modo ciego: el mapa base pierde sus etiquetas y el objetivo pasa a ser el
+// tiempo, no la cantidad de calles. Es un modificador ortogonal a
+// esquinas/lugares, por eso vive aparte de `mode`.
+let blind = false;
+let timerId = null;
+const bestTime = { corners: null, places: null };
+const seedRnd = () => Math.floor(Math.random() * 1e9);
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+// Un "extremo" del puzzle tiene la misma forma que una intersección
+// ([lon, lat, calles]) y puede llevar etiqueta e ícono si es un lugar.
+function endpoint(lon, lat, streets, label, icon) {
+  const e = [lon, lat, streets];
+  if (label) { e.label = label; e.icon = icon; }
+  return e;
+}
+
+function newPuzzlePlaces(seed) {
+  const rnd = mulberry(seed);
+  for (let tries = 0; tries < 40; tries++) {
+    const a = LMK[Math.floor(rnd() * LMK.length)];
+    const A = endpoint(a[0], a[1], a[4], a[2], a[3]);
+    const dO = bfs(A[2]);
+    const cands = [];
+    for (const b of LMK) {
+      if (b === a) continue;
+      const ds = b[4].map(s => dO[s]).filter(d => d > 0);
+      if (!ds.length) continue;
+      const opt = Math.min(...ds);
+      if (opt < 3 || opt > 7) continue;
+      const dx = (a[0] - b[0]) * 92000, dy = (a[1] - b[1]) * 111000;
+      if (Math.hypot(dx, dy) < 1200) continue;
+      cands.push([b, opt]);
+    }
+    if (!cands.length) continue;
+    const [b, opt] = cands[Math.floor(rnd() * cands.length)];
+    const B = endpoint(b[0], b[1], b[4], b[2], b[3]);
+    return { A, B, dO, dD: bfs(B[2]), opt };
+  }
+  return null;
+}
+
+function newPuzzle(seed) {
+  if (mode === "places") return newPuzzlePlaces(seed);
+  const rnd = mulberry(seed);
+  for (let tries = 0; tries < 40; tries++) {
+    const A = INT[Math.floor(rnd() * INT.length)];
+    const dO = bfs(A[2]);
+    const cands = [];
+    for (const B of INT) {
+      const ds = B[2].map(s => dO[s]).filter(d => d > 0);
+      if (!ds.length) continue;
+      const opt = Math.min(...ds);
+      if (opt < 4 || opt > 6) continue;
+      const dx = (A[0] - B[0]) * 92000, dy = (A[1] - B[1]) * 111000;
+      if (Math.hypot(dx, dy) < 1500) continue;             // mínimo ~1.5 km
+      cands.push([B, opt]);
+    }
+    if (!cands.length) continue;
+    const [B, opt] = cands[Math.floor(rnd() * cands.length)];
+    return { A, B, dO, dD: bfs(B[2]), opt };
+  }
+  return null;
+}
+
+// ---------- Mapa ----------
+const map = L.map("map", {
+  preferCanvas: true, zoomControl: false,
+  zoomSnap: 0,            // niveles de zoom fraccionarios: sin saltos
+  zoomDelta: 0.5,         // +/- y teclado avanzan de a medio nivel
+  zoomAnimation: true,
+  fadeAnimation: false,   // sin fade: las teselas nuevas no pasan por opacity 0
+});
+L.control.zoom({ position: "topright" }).addTo(map);
+
+// ---------- Dibujo de calles estilo ruta (Waze / Google Maps) ----------
+// Una calle no se dibuja con una línea plana sino con tres trazos apilados:
+// sombra difusa -> borde blanco (casing) -> núcleo de color. Eso es lo que
+// hace que se lea como una cinta apoyada sobre el mapa y no como un rayón.
+// Cada nivel vive en su propio pane para que TODAS las sombras queden bajo
+// TODOS los bordes, y estos bajo todos los núcleos: si compartieran capa, dos
+// calles que se cruzan se comerían el borde la una a la otra.
+const PANES = { back: 401, reveal: 403, hover: 404,
+                bshadow: 405,                          // sombra de los puentes
+                shadow: 406, case: 408, core: 410,
+                winGlow: 413, winCase: 414, winCore: 415,  // el camino final
+                pts: 418 };
+const R = {};
+for (const [name, z] of Object.entries(PANES)) {
+  const pane = map.createPane("sj-" + name);
+  pane.style.zIndex = String(z);
+  pane.style.transition = "opacity .45s";     // el atenuado al ganar
+  R[name] = L.canvas({ pane: "sj-" + name, padding: 0.15 });
+}
+
+// ---------- Extremos A y B ----------
+// Cada extremo tiene su color. La calle que lo toca se enciende con ese color
+// justo donde está el lugar y se va apagando hacia el resto de la calle: así se
+// ve de un vistazo cuál de tus calles llegó, y a cuál de los dos extremos.
+// Verde azulado y bermellón de Okabe-Ito: se distinguen entre sí con cualquier
+// tipo de daltonismo y no se confunden con el azul/naranja/rosa de los estados.
+const ENDS = { A: { hex: "#009E73" }, B: { hex: "#D55E00" } };
+
+const FADE_M = 650;                  // hasta dónde llega el halo de un extremo
+const pxPerMeter = () => Math.pow(2, map.getZoom() + 8) /
+  (40075016.686 * Math.cos(map.getCenter().lat * Math.PI / 180));
+
+// Leaflet pinta con `options.color`, que además de un string acepta un
+// CanvasGradient. Hay que rehacerlo en cada dibujo porque sus coordenadas son
+// píxeles de la capa y cambian al mover el mapa o al hacer zoom.
+//
+// El degradado es UNO SOLO para todo el tablero: un halo radial centrado en el
+// lugar, con el mismo radio para todas las calles. Al ser puramente espacial,
+// dos calles que se encuentran en una esquina llegan a ella con exactamente el
+// mismo color y el degradado cruza de una a la otra sin escalón. (Cuando el
+// radio se calculaba por calle, una calle corta se pintaba entera del color del
+// lugar y la siguiente arrancaba azul de golpe.)
+const _fillStroke = L.Canvas.prototype._fillStroke;
+L.Canvas.prototype._fillStroke = function (ctx, layer) {
+  // Sombra que se desvanece hacia las puntas del trazo. Un stroke plano corto
+  // deja dos bordes rectos que se leen como un rectángulo gris, no como sombra.
+  const soft = layer.options.soft;
+  if (soft && layer._parts && layer._parts[0] && layer._parts[0].length > 1) {
+    const pts = layer._parts[0], p0 = pts[0], p1 = pts[pts.length - 1];
+    const grd = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
+    grd.addColorStop(0, "rgba(15,23,42,0)");
+    grd.addColorStop(.3, soft); grd.addColorStop(.7, soft);
+    grd.addColorStop(1, "rgba(15,23,42,0)");
+    const keep0 = layer.options.color;
+    layer.options.color = grd;
+    _fillStroke.call(this, ctx, layer);
+    layer.options.color = keep0;
+    return;
+  }
+  const g = layer.options.grad;
+  if (!g || !layer.options.stroke || !layer._parts)
+    return _fillStroke.call(this, ctx, layer);
+  const pa = map.latLngToLayerPoint(g.a), pb = map.latLngToLayerPoint(g.b);
+  const ppm = pxPerMeter();
+  // el halo crece con el zoom, pero acotado: alejado no puede desaparecer y
+  // acercado no puede teñir la pantalla entera
+  const fade = Math.max(60, Math.min(320, FADE_M * ppm));
+  // r0 = distancia del lugar a la calle más cercana suya. Un parque o un
+  // estadio tienen su punto a cientos de metros del asfalto: sin esto el
+  // degradado se gastaría entero antes de llegar a la calle.
+  const r0a = g.r0a * ppm, r0b = g.r0b * ppm;
+  let da = Infinity, db = Infinity;
+  for (const part of layer._parts) for (const pt of part) {
+    const xa = pt.x - pa.x, ya = pt.y - pa.y, d1 = xa * xa + ya * ya;
+    if (d1 < da) da = d1;
+    const xb = pt.x - pb.x, yb = pt.y - pb.y, d2 = xb * xb + yb * yb;
+    if (d2 < db) db = d2;
+  }
+  const inA = g.useA && da < (r0a + fade) ** 2;
+  const inB = g.useB && db < (r0b + fade) ** 2;
+  if (!inA && !inB) return _fillStroke.call(this, ctx, layer);
+  let grd;
+  if (inA && inB) {                  // la calle alcanza los dos extremos
+    grd = ctx.createLinearGradient(pa.x, pa.y, pb.x, pb.y);
+    grd.addColorStop(0, g.ca);  grd.addColorStop(.22, g.ca);
+    grd.addColorStop(.42, g.to); grd.addColorStop(.58, g.to);
+    grd.addColorStop(.78, g.cb); grd.addColorStop(1, g.cb);
+  } else {
+    const p = inA ? pa : pb, r0 = inA ? r0a : r0b, c = inA ? g.ca : g.cb;
+    grd = ctx.createRadialGradient(p.x, p.y, r0, p.x, p.y, r0 + fade);
+    // el cruce de color se concentra en el tramo central: entre dos colores
+    // casi opuestos, un desvanecido largo pasa demasiado tiempo por el gris
+    grd.addColorStop(0, c); grd.addColorStop(.38, c);
+    grd.addColorStop(.82, g.to); grd.addColorStop(1, g.to);
+  }
+  const keep = layer.options.color;
+  layer.options.color = grd;         // de acá sale el strokeStyle
+  _fillStroke.call(this, ctx, layer);
+  layer.options.color = keep;
+};
+
+// El ancho sigue al zoom, como en cualquier navegador: la ruta engorda al
+// acercarse en vez de quedar como un hilo constante.
+function baseWeight() {
+  return Math.max(3.5, Math.min(11, 3.5 + (map.getZoom() - 11.5) * 1.05));
+}
+
+// Zoom de rueda/trackpad propio: el de Leaflet acumula el delta y lo aplica
+// con debounce, lo que en un trackpad (muchos eventos chicos) se siente
+// trabado. Acá cada evento mueve el zoom de inmediato, sin animación.
+map.scrollWheelZoom.disable();
+let wheelEndTimer = null;
+map.getContainer().addEventListener("wheel", e => {
+  e.preventDefault();
+  let d = e.deltaY;
+  if (e.deltaMode === 1) d *= 30;         // deltas en líneas (Firefox)
+  else if (e.deltaMode === 2) d *= 100;   // deltas en páginas
+  d = Math.max(-80, Math.min(80, d));     // acota golpes de rueda grandes
+  // el pinch del trackpad llega como ctrl+wheel con deltas más chicos
+  const z0 = map.getZoom();
+  const z = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(),
+                     z0 - d * (e.ctrlKey ? 0.035 : 0.012)));
+  if (z === z0) return;
+  map._stop();                            // corta animaciones en curso
+
+  // Zoom continuo con el mismo mecanismo que usa Leaflet para el pinch táctil:
+  // _move() reescala lo que ya está dibujado. (setView/setZoomAround dispararían
+  // 'viewreset', que descarta todas las teselas y deja el mapa en blanco.)
+  const pt = map.mouseEventToContainerPoint(e);
+  const half = map.getSize().divideBy(2);
+  const scale = map.getZoomScale(z, z0);
+  const center = map.containerPointToLatLng(
+    half.add(pt.subtract(half).multiplyBy(1 - 1 / scale)));
+  map._move(center, z, { pinch: true, round: false });
+
+  // al soltar, recién ahí se piden las teselas del nivel final
+  clearTimeout(wheelEndTimer);
+  wheelEndTimer = setTimeout(() => map._moveEnd(true), 180);
+}, { passive: false });
+const TILE_LABELS   = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const TILE_NOLABELS = "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png";
+const tiles = L.tileLayer(TILE_LABELS, {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  maxZoom: 19, subdomains: "abcd",
+  // Durante el zoom se reescalan las teselas que ya están y solo se piden
+  // nuevas al soltar: si no, el mapa se vacía mientras uno hace zoom.
+  updateWhenZooming: false,
+  updateWhenIdle: true,
+  keepBuffer: 4,
+}).addTo(map);
+// El mapa base sin etiquetas solo mientras se juega a ciegas: al terminar
+// vuelven los nombres, que es cuando uno quiere leer lo que acaba de recorrer.
+function applyTiles() {
+  const url = (blind && game && !game.over) ? TILE_NOLABELS : TILE_LABELS;
+  if (tiles._url !== url) tiles.setUrl(url);
+}
+
+// Sin teselas (offline), dibuja las vías principales como contexto mínimo
+let fallbackNet = null;
+tiles.on("tileerror", () => {
+  if (fallbackNet) return;
+  fallbackNet = L.layerGroup(S.flatMap((s, i) => s.c <= 1
+    ? [L.polyline(toLatLngs(s.g), { renderer: R.back, color: "#d6d3d1",
+                                    weight: 1.5, opacity: .9, interactive: false })]
+    : [])).addTo(map);
+});
+
+const DEC = CITY.enc || 1e5;
+function decodeLine(enc) {           // delta-encoded ints -> [lat,lng]
+  const pts = []; let x = 0, y = 0;
+  for (let i = 0; i < enc.length; i += 2) {
+    x += enc[i]; y += enc[i + 1]; pts.push([y / DEC, x / DEC]);
+  }
+  return pts;
+}
+const toLatLngs = g => g.map(decodeLine);
+// El mapa base CARTO ya muestra todas las calles: solo se crean polylines
+// para las calles adivinadas/reveladas (lazy), nunca para toda la red.
+const layers = new Array(S.length).fill(null);
+const geoCache = new Map();
+const geoOf = i => {                 // geometría completa, decodificada una vez
+  if (!geoCache.has(i)) geoCache.set(i, toLatLngs(S[i].g));
+  return geoCache.get(i);
+};
+function layerOf(i) {
+  if (!layers[i]) {
+    const pts = geoOf(i);
+    const mk = k => L.polyline(pts, { renderer: R[k], interactive: false,
+                                      smoothFactor: 1 }).addTo(map);
+    layers[i] = { shadow: mk("shadow"), case: mk("case"), core: mk("core"), st: null };
+  }
+  return layers[i];
+}
+
+// Los tres trazos de una calle según su estado. El punteado se calcula en
+// función del ancho (y no fijo) para que a cualquier zoom se vean puntos
+// redondos parejos y no guiones aplastados.
+function strokeStyles(st) {
+  const w = Math.max(3, baseWeight() + (st.lift || 0) * 0.9);
+  const dash = st.dash === "dot"  ? [1, Math.round(w * 2.1)]
+             : st.dash === "dash" ? [Math.round(w * 2.1), Math.round(w * 1.5)]
+             : null;
+  const soft = { lineCap: "round", lineJoin: "round" };
+  return {
+    shadow: { ...soft, color: "#0f172a", weight: w + 8,
+              opacity: st.lift < 0 ? .07 : .12, dashArray: null },
+    case:   { ...soft, color: "#ffffff", weight: w + 4.5,
+              opacity: st.lift < 0 ? .85 : 1, dashArray: null },
+    core:   { ...soft, color: st.hex, weight: w, opacity: 1,
+              dashArray: dash ? dash.join(" ") : null },
+  };
+}
+
+// "A", "B", "AB" o null: qué extremo(s) toca la calle i (adyacencia real del
+// grafo; el degradado en cambio es geométrico y no sabe de conexiones)
+function endTouch(i) {
+  if (!game) return null;
+  const a = game.setA.has(i), b = game.setB.has(i);
+  return a && b ? "AB" : a ? "A" : b ? "B" : null;
+}
+// Qué calles llegan a cada extremo encadenándose con las ya nombradas. El halo
+// es geométrico, así que sin este filtro una calle que apenas pasa cerca del
+// lugar se teñía igual y parecía conectada sin estarlo.
+let reachA = new Set(), reachB = new Set();
+
+// Los parámetros geométricos son los mismos para todas las calles —eso es lo
+// que hace que el degradado sea continuo de una calle a la siguiente— y lo
+// único que cambia por calle es a qué extremo tiene permiso de responder.
+const gradFor = (i, to) => ({
+  a: [game.A[1], game.A[0]], b: [game.B[1], game.B[0]],
+  ca: ENDS.A.hex, cb: ENDS.B.hex, r0a: game.r0A, r0b: game.r0B, to,
+  useA: reachA.has(i), useB: reachB.has(i) });
+
+function paintStreet(i, st) {
+  const l = layerOf(i), sty = strokeStyles(st);
+  l.st = st;
+  l.shadow.setStyle(sty.shadow); l.case.setStyle(sty.case);
+  l.core.setStyle({ ...sty.core, grad: gradFor(i, st.hex) });
+  // dentro de cada pane, lo que está en la ruta va arriba y lo lejano abajo
+  const move = (st.lift || 0) > 0 ? "bringToFront" : (st.lift || 0) < 0 ? "bringToBack" : null;
+  if (move) { l.shadow[move](); l.case[move](); l.core[move](); }
+}
+
+// El ancho depende del zoom, así que hay que repintar al terminar el gesto.
+function repaintAll() {
+  layers.forEach((l, i) => { if (l && l.st) paintStreet(i, l.st); });
+  if (revealLayer) styleReveal();
+  if (hoverLayer) hoverLayer.setStyle(hoverStyle());
+  applyBridges();                    // el hueco se mide en píxeles
+  if (winLayers) {
+    const sty = winStyles();
+    for (const k of ["glow", "case", "core"]) winLayers[k].setStyle(sty[k]);
+    if (winLayers.head) winLayers.head.setStyle({ radius: baseWeight() * .5 + 3.5 });
+  }
+}
+map.on("zoomend", repaintAll);
+
+let markers = [], revealLayer = null;
+
+// La ruta mínima revelada: una banda ancha y neutra por debajo de todo, como
+// el trazo "fantasma" que los navegadores usan para la ruta alternativa.
+function styleReveal() {
+  const w = baseWeight() + 11;
+  revealLayer.eachLayer(l => l.setStyle({
+    color: "#475569", weight: w, opacity: .22,
+    lineCap: "round", lineJoin: "round" }));
+}
+const hoverStyle = () => ({
+  color: "#334155", weight: baseWeight() + 7, opacity: .2,
+  lineCap: "round", lineJoin: "round" });
+
+// ---------- Cruces a distinto nivel ----------
+// Dos calles dibujadas que se cruzan en el mapa pero no comparten intersección
+// en el grafo pasan una por encima de la otra (un puente, una autopista
+// elevada). Dibujadas planas parecen conectar, que es justo lo contrario de lo
+// que el juego necesita mostrar.
+//
+// En vez de parchar la calle de ARRIBA, se le abre un hueco a la de ABAJO: se
+// le recorta la geometría alrededor del cruce y la de arriba sigue de largo sin
+// que nadie la toque. Es lo que hacen los mapas de verdad con los pasos bajo
+// nivel, y sobre todo esquiva el problema del parche: cualquier trazo apoyado
+// encima de la calle de arriba deja una costura donde empieza y donde termina
+// (recta contra curva, sólido contra punteado). Acá no hay nada apoyado, así
+// que no hay costura posible. En el hueco queda una sombra difusa a lo largo de
+// la calle de arriba: eso es lo que se lee como "pasa por encima".
+let crossings = [], bridgeLayer = null;
+
+// Punto donde se cruzan dos segmentos (p1p2 es el de la calle de arriba)
+function segHit(p1, p2, p3, p4) {
+  const x1 = p1[1], y1 = p1[0], x2 = p2[1], y2 = p2[0];
+  const x3 = p3[1], y3 = p3[0], x4 = p4[1], y4 = p4[0];
+  if (Math.max(x1, x2) < Math.min(x3, x4) || Math.min(x1, x2) > Math.max(x3, x4) ||
+      Math.max(y1, y2) < Math.min(y3, y4) || Math.min(y1, y2) > Math.max(y3, y4)) return null;
+  const dx1 = x2 - x1, dy1 = y2 - y1, dx2 = x4 - x3, dy2 = y4 - y3;
+  const den = dx1 * dy2 - dy1 * dx2;
+  if (!den) return null;
+  const t = ((x3 - x1) * dy2 - (y3 - y1) * dx2) / den;
+  const u = ((x3 - x1) * dy1 - (y3 - y1) * dx1) / den;
+  if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+  return { lat: y1 + t * dy1, lng: x1 + t * dx1,
+           ux: dx1, uy: dy1, vx: dx2, vy: dy2 };
+}
+
+function bboxOf(lines) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const l of lines) for (const [la, lo] of l) {
+    if (lo < x0) x0 = lo; if (lo > x1) x1 = lo;
+    if (la < y0) y0 = la; if (la > y1) y1 = la;
+  }
+  return [x0, y0, x1, y1];
+}
+
+function findCrossings() {
+  if (!game) return [];
+  const ids = [...game.named];
+  if (ids.length < 2) return [];
+  const geo = ids.map(i => toLatLngs(S[i].g)), bb = geo.map(bboxOf), out = [];
+  for (let a = 0; a < ids.length && out.length < 24; a++) {
+    for (let b = a + 1; b < ids.length && out.length < 24; b++) {
+      const i = ids[a], j = ids[b];
+      if (S[i].a.includes(j)) continue;         // se tocan de verdad: no es un puente
+      if (bb[a][0] > bb[b][2] || bb[b][0] > bb[a][2] ||
+          bb[a][1] > bb[b][3] || bb[b][1] > bb[a][3]) continue;
+      // sin datos de puente/túnel en el pipeline, la jerarquía es la mejor
+      // aproximación: la vía más importante es la que suele ir elevada
+      const top = S[i].c <= S[j].c ? a : b, low = top === a ? b : a;
+      for (const la of geo[top]) for (let m = 1; m < la.length; m++)
+        for (const lb of geo[low]) for (let n = 1; n < lb.length; n++) {
+          const h = segHit(la[m - 1], la[m], lb[n - 1], lb[n]);
+          if (!h) continue;
+          // cruces casi en el mismo punto (dos tramos paralelos) cuentan uno
+          if (out.some(o => Math.abs(o.lat - h.lat) < 1.5e-4 &&
+                            Math.abs(o.lng - h.lng) < 1.5e-4)) continue;
+          h.over = ids[top]; h.under = ids[low];
+          out.push(h);
+          if (out.length >= 24) break;
+        }
+    }
+  }
+  return out;
+}
+
+// Recorta de `lines` todo lo que caiga dentro de alguno de los discos `cuts`.
+// El corte es por segmento y con interpolación exacta: cortar por vértices
+// dejaría bordes dentados, porque la geometría simplificada tiene vértices
+// separados decenas de metros.
+function keptIntervals(a, b, cuts) {
+  const k = Math.cos(a[0] * Math.PI / 180);
+  const ax = a[1] * k * 111320, ay = a[0] * 110574;
+  const dx = (b[1] - a[1]) * k * 111320, dy = (b[0] - a[0]) * 110574;
+  const L2 = dx * dx + dy * dy;
+  if (!L2) return [];
+  const blocked = [];
+  for (const c of cuts) {
+    const fx = ax - c.lng * k * 111320, fy = ay - c.lat * 110574;
+    const B = 2 * (fx * dx + fy * dy), C = fx * fx + fy * fy - c.half * c.half;
+    const disc = B * B - 4 * L2 * C;
+    if (disc <= 0) continue;
+    const sq = Math.sqrt(disc);
+    const t0 = Math.max(0, (-B - sq) / (2 * L2)), t1 = Math.min(1, (-B + sq) / (2 * L2));
+    if (t1 > t0) blocked.push([t0, t1]);
+  }
+  if (!blocked.length) return [[0, 1]];
+  blocked.sort((p, q) => p[0] - q[0]);
+  const kept = [];
+  let cur = 0;
+  for (const [t0, t1] of blocked) {
+    if (t0 > cur) kept.push([cur, t0]);
+    if (t1 > cur) cur = t1;
+  }
+  if (cur < 1) kept.push([cur, 1]);
+  return kept;
+}
+
+function cutLines(lines, cuts) {
+  const out = [];
+  const at = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  for (const line of lines) {
+    let run = [];
+    const close = () => { if (run.length > 1) out.push(run); run = []; };
+    for (let i = 1; i < line.length; i++) {
+      const a = line[i - 1], b = line[i], kept = keptIntervals(a, b, cuts);
+      if (!kept.length) { close(); continue; }
+      for (const [t0, t1] of kept) {
+        if (t0 > 0 || !run.length) { close(); run = [at(a, b, t0)]; }
+        run.push(at(a, b, t1));
+        if (t1 < 1) close();
+      }
+    }
+    close();
+  }
+  return out;
+}
+
+// Qué calles están recortadas ahora y con qué parámetros, para no reproyectar
+// geometrías de miles de puntos cuando no cambió nada.
+let cutNow = new Map();
+const setGeom = (i, lines) => {
+  const l = layers[i];
+  if (l) { l.shadow.setLatLngs(lines); l.case.setLatLngs(lines); l.core.setLatLngs(lines); }
+};
+
+// El hueco se mide en píxeles (tiene que dejar pasar el ancho de la calle de
+// arriba) pero se recorta en coordenadas del mapa: se rehace en cada zoom.
+function applyBridges() {
+  if (bridgeLayer) { map.removeLayer(bridgeLayer); bridgeLayer = null; }
+  const ppm = pxPerMeter(), cutsBy = new Map(), shadows = [];
+  // Alejado no se corta nada: con la calle en 4 px el hueco sería más grande
+  // que las dos calles juntas, y a esa escala el paso bajo nivel no es lo que
+  // se está mirando.
+  if (baseWeight() >= 5.5) for (const c of crossings) {
+    const lo = layers[c.under], up = layers[c.over];
+    if (!lo || !up || !lo.st || !up.st) continue;
+    const sty = strokeStyles(up.st);
+    const k = Math.cos(c.lat * Math.PI / 180);
+    let ux = c.ux * k, uy = c.uy, vx = c.vx * k, vy = c.vy;
+    const nu = Math.hypot(ux, uy) || 1, nv = Math.hypot(vx, vy) || 1;
+    ux /= nu; uy /= nu; vx /= nv; vy /= nv;
+    // en un cruce oblicuo la calle de arriba tapa más largo de la de abajo
+    const sin = Math.max(.45, Math.abs(ux * vy - uy * vx));
+    const cw = sty.case.weight;
+    const half = (cw / 2 / sin + cw * .4) / ppm;          // metros
+    if (!cutsBy.has(c.under)) cutsBy.set(c.under, []);
+    cutsBy.get(c.under).push({ lat: c.lat, lng: c.lng, half });
+    // sombra a lo largo de la calle de arriba y por debajo de todas las calles:
+    // se ve justo en el hueco que quedó abierto
+    const h = cw * 1.7 / ppm;
+    const dLat = h * uy / 110574, dLng = h * ux / (111320 * k);
+    shadows.push(L.polyline([[c.lat - dLat, c.lng - dLng], [c.lat + dLat, c.lng + dLng]],
+      { renderer: R.bshadow, interactive: false, lineCap: "butt",
+        soft: "rgba(15,23,42,.36)", weight: sty.core.weight * 2.5, opacity: 1 }));
+  }
+  const live = new Set();
+  for (const [i, cuts] of cutsBy) {
+    live.add(i);
+    const key = cuts.map(c => `${c.lat.toFixed(5)},${c.lng.toFixed(5)},${c.half.toFixed(1)}`)
+                    .sort().join("|");
+    if (cutNow.get(i) === key) continue;
+    cutNow.set(i, key);
+    // si el hueco se comiera la calle entera (una calle corta cruzada por una
+    // autopista) es mejor dejarla como está que hacerla desaparecer
+    const cut = cutLines(geoOf(i), cuts);
+    setGeom(i, cut.length ? cut : geoOf(i));
+  }
+  for (const i of [...cutNow.keys()])
+    if (!live.has(i)) { cutNow.delete(i); setGeom(i, geoOf(i)); }
+  if (shadows.length) bridgeLayer = L.layerGroup(shadows).addTo(map);
+}
+
+// ---------- Camino final ----------
+// Al ganar se dibuja el recorrido de punta a punta: no las calles enteras, solo
+// el tramo de cada una que hace falta para ir de A a B. Mientras se dibuja, el
+// resto del tablero se atenúa; ese contraste ES el mensaje ("de todo lo que
+// nombraste, esto fue lo que hizo falta").
+const MLAT = 110574, mLon = lat => 111320 * Math.cos(lat * Math.PI / 180);
+
+// Cadena más corta de calles NOMBRADAS que va de un extremo al otro
+function namedChain() {
+  const goal = new Set([...game.B[2]].filter(i => game.named.has(i)));
+  const prev = new Map();
+  let q = [...game.A[2]].filter(i => game.named.has(i));
+  q.forEach(i => prev.set(i, null));
+  while (q.length) {
+    const nq = [];
+    for (const u of q) {
+      if (goal.has(u)) {
+        const chain = [];
+        for (let c = u; c != null; c = prev.get(c)) chain.push(c);
+        return chain.reverse();
+      }
+      for (const v of S[u].a)
+        if (game.named.has(v) && !prev.has(v)) { prev.set(v, u); nq.push(v); }
+    }
+    q = nq;
+  }
+  return null;
+}
+
+// Posición más cercana a `pt` sobre un conjunto de polilíneas
+function locate(lines, pt) {
+  const k = mLon(pt[0]);
+  let best = { d: Infinity };
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
+    for (let si = 0; si + 1 < line.length; si++) {
+      const a = line[si], b = line[si + 1];
+      const ax = (a[1] - pt[1]) * k, ay = (a[0] - pt[0]) * MLAT;
+      const dx = (b[1] - a[1]) * k, dy = (b[0] - a[0]) * MLAT;
+      const L2 = dx * dx + dy * dy;
+      let t = L2 ? -(ax * dx + ay * dy) / L2 : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const qx = ax + dx * t, qy = ay + dy * t, d = qx * qx + qy * qy;
+      if (d < best.d) best = { d, li, si, t };
+    }
+  }
+  return best.d === Infinity ? null : best;
+}
+
+// Todos los puntos donde se cruzan dos calles vecinas. Si la simplificación
+// las dejó sin tocarse, se usa el punto más cercano entre ambas.
+function crossPoints(iA, iB) {
+  const ga = geoOf(iA), gb = geoOf(iB), out = [];
+  for (const la of ga) for (let m = 1; m < la.length; m++)
+    for (const lb of gb) for (let n = 1; n < lb.length; n++) {
+      const h = segHit(la[m - 1], la[m], lb[n - 1], lb[n]);
+      if (h) out.push([h.lat, h.lng]);
+    }
+  if (out.length) return out;
+  // Sin cruce geométrico (la simplificación las dejó sin tocarse): el punto más
+  // cercano entre las dos. Hay que mirar en LOS DOS sentidos —vértices de una
+  // contra tramos de la otra y viceversa—: con un solo sentido, si el acercamiento
+  // real pasa por un vértice de la primera, se elegía un punto cientos de metros
+  // más lejos y el camino final cruzaba el mapa en línea recta.
+  let bd = Infinity, pa = null, pb = null;
+  const probe = (from, onto, swap) => {
+    for (const line of from) for (const p of line) {
+      const l = locate(onto, p);
+      if (!l || l.d >= bd) continue;
+      bd = l.d;
+      const foot = pointAt(onto, l);
+      pa = swap ? foot : p; pb = swap ? p : foot;
+    }
+  };
+  probe(gb, ga, true); probe(ga, gb, false);
+  return pa ? [[(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2]] : [];
+}
+
+// El punto exacto que devuelve locate() sobre la polilínea
+function pointAt(lines, loc) {
+  const line = lines[loc.li], p = line[loc.si], q = line[loc.si + 1];
+  return [p[0] + (q[0] - p[0]) * loc.t, p[1] + (q[1] - p[1]) * loc.t];
+}
+
+// Grafo caminable de UNA calle. La geometría no viene como una polilínea de
+// punta a punta sino como una lista de tramos sueltos, así que hay que armar
+// los nodos (vértices compartidos entre tramos) para poder ir de un punto a
+// otro por donde la calle realmente va. Son pocos: la simplificación del
+// pipeline deja unas decenas de vértices por avenida.
+const graphCache = new Map();
+function streetGraph(i) {
+  if (graphCache.has(i)) return graphCache.get(i);
+  const id = new Map(), pts = [], adj = [];
+  const nodeOf = p => {
+    const k = p[0].toFixed(5) + "," + p[1].toFixed(5);
+    let n = id.get(k);
+    if (n === undefined) { n = pts.length; id.set(k, n); pts.push(p); adj.push([]); }
+    return n;
+  };
+  for (const line of geoOf(i)) {
+    let prev = -1;
+    for (const p of line) {
+      const n = nodeOf(p);
+      if (prev >= 0 && prev !== n) {
+        const w = metersBetween(pts[prev], pts[n]);
+        adj[prev].push([n, w]); adj[n].push([prev, w]);
+      }
+      prev = n;
+    }
+  }
+  // El pipeline fusiona por cercanía tramos del mismo nombre que no se tocan
+  // (una calle cortada por una plaza o una autopista). Para poder caminarla
+  // entera se unen las componentes por su par de nodos más cercano.
+  const root = pts.map((_, n) => n);
+  const find = a => { while (root[a] !== a) a = root[a] = root[root[a]]; return a; };
+  const union = (a, b) => { const x = find(a), y = find(b); if (x !== y) root[x] = y; };
+  for (let n = 0; n < adj.length; n++) for (const [m] of adj[n]) union(n, m);
+  const nRoots = () => new Set(pts.map((_, n) => find(n))).size;
+  for (let guard = 0; pts.length <= 900 && guard < 40 && nRoots() > 1; guard++) {
+    let bd = Infinity, ba = -1, bb = -1;
+    for (let x = 0; x < pts.length; x++) for (let y = x + 1; y < pts.length; y++) {
+      if (find(x) === find(y)) continue;
+      const d = metersBetween(pts[x], pts[y]);
+      if (d < bd) { bd = d; ba = x; bb = y; }
+    }
+    if (ba < 0) break;
+    adj[ba].push([bb, bd]); adj[bb].push([ba, bd]); union(ba, bb);
+  }
+  const g = { pts, adj };
+  graphCache.set(i, g);
+  return g;
+}
+
+const metersBetween = (p, q) =>
+  Math.hypot((q[1] - p[1]) * mLon(p[0]), (q[0] - p[0]) * MLAT);
+
+function segDist(pt, a, b) {                  // metros de `pt` al segmento a-b
+  const k = mLon(pt[0]);
+  const ax = (a[1] - pt[1]) * k, ay = (a[0] - pt[0]) * MLAT;
+  const dx = (b[1] - a[1]) * k, dy = (b[0] - a[0]) * MLAT;
+  const L2 = dx * dx + dy * dy;
+  let t = L2 ? -(ax * dx + ay * dy) / L2 : 0;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return Math.hypot(ax + dx * t, ay + dy * t);
+}
+
+function dijkstra(pts, adj, s, t) {
+  const n = pts.length, dist = new Float64Array(n).fill(Infinity);
+  const prev = new Int32Array(n).fill(-1), done = new Uint8Array(n);
+  if (s < 0 || t < 0) return null;
+  dist[s] = 0;
+  for (;;) {
+    let u = -1, bd = Infinity;
+    for (let k = 0; k < n; k++) if (!done[k] && dist[k] < bd) { bd = dist[k]; u = k; }
+    if (u < 0 || u === t) break;
+    done[u] = 1;
+    for (const [v, w] of adj[u])
+      if (dist[u] + w < dist[v]) { dist[v] = dist[u] + w; prev[v] = u; }
+  }
+  if (!isFinite(dist[t])) return null;
+  const path = [];
+  for (let c = t; c >= 0; c = prev[c]) path.push(c);
+  return path.reverse();
+}
+
+// El recorrido real de punta a punta. Se arma UN grafo con las calles de la
+// cadena pegadas por sus cruces y se busca el camino más corto de A a B: elegir
+// el cruce calle por calle, greedy, hacía que la ruta se fuera y volviera
+// cuando dos calles se cruzan en más de un lugar.
+function winRoute() {
+  const chain = namedChain();
+  if (!chain || !chain.length) return null;
+  const pts = [], adj = [];
+  const add = p => { pts.push(p); adj.push([]); return pts.length - 1; };
+  const link = (x, y, w) => { adj[x].push([y, w]); adj[y].push([x, w]); };
+  const base = [];
+  for (const i of chain) {
+    const g = streetGraph(i);
+    base.push(pts.length);
+    const off = pts.length;
+    for (const q of g.pts) add(q);
+    for (let n = 0; n < g.adj.length; n++)
+      for (const [m, w] of g.adj[n]) if (n < m) link(off + n, off + m, w);
+  }
+  // Engancha un punto suelto a la calle k. No solo al tramo más cercano: a
+  // TODOS los que pasen cerca. Una avenida con bandejón viene como dos calzadas
+  // paralelas que solo se tocan en las puntas; si el cruce de entrada engancha
+  // en una calzada y el de salida en la otra, el camino más corto entre ambas
+  // se va hasta la punta y vuelve. Una esquina cruza la avenida entera, así que
+  // enganchar a las dos calzadas es además lo correcto.
+  const attach = (nd, k) => {
+    const g = streetGraph(chain[k]), off = base[k], edges = [];
+    for (let a = 0; a < g.adj.length; a++) for (const [m] of g.adj[a]) {
+      if (m < a) continue;
+      edges.push([segDist(pts[nd], g.pts[a], g.pts[m]), a, m]);
+    }
+    if (!edges.length) {                     // calle de un solo nodo
+      let bn = -1, bd = Infinity;
+      for (let a = 0; a < g.pts.length; a++) {
+        const d = metersBetween(pts[nd], g.pts[a]);
+        if (d < bd) { bd = d; bn = a; }
+      }
+      if (bn >= 0) link(nd, off + bn, bd);
+      return;
+    }
+    // El umbral es RELATIVO al tramo más cercano, nunca absoluto: el punto de
+    // un lugar es el centro de un parque o de un estadio y puede estar a
+    // cientos de metros del asfalto. Con un tope fijo, esos extremos quedaban
+    // sin enganchar, el grafo sin camino y no se dibujaba nada.
+    edges.sort((x, y) => x[0] - y[0]);
+    const lim = edges[0][0] + 70;
+    for (const [d, a, m] of edges.slice(0, 8)) {
+      if (d > lim) break;
+      link(nd, off + a, metersBetween(pts[nd], g.pts[a]));
+      link(nd, off + m, metersBetween(pts[nd], g.pts[m]));
+    }
+  };
+  for (let k = 0; k + 1 < chain.length; k++)
+    for (const p of crossPoints(chain[k], chain[k + 1])) {
+      const nd = add(p); attach(nd, k); attach(nd, k + 1);
+    }
+  const aNd = add([game.A[1], game.A[0]]); attach(aNd, 0);
+  const bNd = add([game.B[1], game.B[0]]); attach(bNd, chain.length - 1);
+  const path = dijkstra(pts, adj, aNd, bNd);
+  if (!path || path.length < 2) return null;
+  const out = [];
+  for (const n of path) {
+    const q = pts[n], last = out[out.length - 1];
+    if (!last || Math.abs(last[0] - q[0]) > 1e-7 || Math.abs(last[1] - q[1]) > 1e-7)
+      out.push(q);
+  }
+  return out.length > 1 ? out : null;
+}
+
+// ---------- Animación ----------
+const DIM_PANES = ["reveal", "bshadow", "shadow", "case", "core"];
+const setDim = on => DIM_PANES.forEach(n => {
+  map.getPane("sj-" + n).style.opacity = on ? ".5" : "";
+});
+
+let winLayers = null, winRaf = null, winEnd = null, winPts = null;
+
+function winStyles() {
+  const w = baseWeight();
+  return {
+    glow: { color: "#0072B2", weight: w + 17, opacity: .16 },
+    case: { color: "#ffffff", weight: w + 9.5, opacity: 1 },
+    core: { color: "#0072B2", weight: w + 3.5, opacity: 1 },
+  };
+}
+
+function clearWin() {
+  if (winRaf) { cancelAnimationFrame(winRaf); winRaf = null; }
+  if (winLayers) {
+    for (const k in winLayers) map.removeLayer(winLayers[k]);
+    winLayers = null;
+  }
+  winEnd = null; winPts = null;
+  setDim(false);
+}
+
+function drawWin(route, done) {
+  const cum = [0];
+  for (let i = 1; i < route.length; i++)
+    cum.push(cum[i - 1] + metersBetween(route[i - 1], route[i]));
+  const total = cum[cum.length - 1] || 1;
+  const sty = winStyles();
+  const mk = (pane, st) => L.polyline([route[0]], { renderer: R[pane], interactive: false,
+    lineCap: "round", lineJoin: "round", ...st }).addTo(map);
+  winLayers = { glow: mk("winGlow", sty.glow), case: mk("winCase", sty.case),
+                core: mk("winCore", sty.core),
+                head: L.circleMarker(route[0], { renderer: R.pts,
+                  radius: baseWeight() * .5 + 3.5, color: "#fff", weight: 3,
+                  fillColor: "#0072B2", fillOpacity: 1 }).addTo(map) };
+  setDim(true);
+
+  const upto = d => {
+    let i = 1;
+    while (i < cum.length && cum[i] < d) i++;
+    const part = route.slice(0, i);
+    if (i < cum.length) {
+      const f = (d - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1);
+      part.push([route[i - 1][0] + (route[i][0] - route[i - 1][0]) * f,
+                 route[i - 1][1] + (route[i][1] - route[i - 1][1]) * f]);
+    }
+    return part;
+  };
+  const paint = part => {
+    winLayers.glow.setLatLngs(part); winLayers.case.setLatLngs(part);
+    winLayers.core.setLatLngs(part);
+    winLayers.head.setLatLng(part[part.length - 1]);
+  };
+
+  // 1,6 s largos para un camino largo, cortos para uno corto, pero acotado
+  const dur = Math.max(900, Math.min(2200, total * 1.1));
+  const t0 = performance.now();
+  winEnd = () => {                       // saltear: se completa de una
+    if (winRaf) { cancelAnimationFrame(winRaf); winRaf = null; }
+    winEnd = null;
+    paint(route);
+    if (winLayers) { map.removeLayer(winLayers.head); delete winLayers.head; }
+    done();
+  };
+  const step = now => {
+    const p = Math.min(1, (now - t0) / dur);
+    paint(upto((1 - Math.pow(1 - p, 3)) * total));      // ease-out
+    if (p < 1) winRaf = requestAnimationFrame(step);
+    else if (winEnd) winEnd();
+  };
+  winRaf = requestAnimationFrame(step);
+}
+
+// ---------- UI ----------
+const $ = id => document.getElementById(id);
+const els = { obj: $("objective"), tries: $("tries"), msg: $("msg"), chips: $("chips"),
+              guess: $("guess"), suggest: $("suggest"), overlay: $("overlay") };
+
+function cornerName(inter) {
+  if (inter.label) return inter.label;         // lugar icónico
+  const named = [...inter[2]].sort((a, b) => S[a].c - S[b].c).slice(0, 2)
+    .map(s => S[s].n.replace(/^Avenida /, "Av. "));
+  return named.join(" / ");
+}
+
+function start(seed = seedRnd()) { startWith(newPuzzle(seed), seed); }
+
+function addMarker(inter, label, fill = "#1c1917") {
+  const m = inter.icon
+    ? L.marker([inter[1], inter[0]], { icon: L.divIcon({
+        html: `<div class="lmk ep" style="--ring:${fill}">${inter.icon}</div>`, className: "",
+        iconSize: [26, 26], iconAnchor: [13, 13] }) }).addTo(map)
+    : L.circleMarker([inter[1], inter[0]], {
+        renderer: R.pts,          // por encima de las calles dibujadas
+        radius: 8, color: "#fff", weight: 3, fillColor: fill, fillOpacity: 1,
+      }).addTo(map);
+  m.bindTooltip(`${label} · ${cornerName(inter)}`,
+    { permanent: true, direction: "top", className: "ptlabel ep" + label,
+      offset: [0, inter.icon ? -14 : -10] });
+  markers.push(m);
+  return m;
+}
+
+// Los íconos de todos los lugares: solo se muestran mientras se eligen los
+// dos extremos de un puzzle propio.
+let lmkLayer = null;
+function drawLandmarks(on) {
+  if (lmkLayer) { map.removeLayer(lmkLayer); lmkLayer = null; }
+  if (!on) return;
+  lmkLayer = L.layerGroup(LMK.map(l => {
+    const [lon, lat, name, icon] = l;
+    const m = L.marker([lat, lon], { icon: L.divIcon({
+      html: `<div class="lmk pickable">${icon}</div>`, className: "",
+      iconSize: [28, 28], iconAnchor: [14, 14] }) })
+      .bindTooltip(name, { direction: "top", className: "ptlabel", offset: [0, -14] });
+    m.on("click", ev => {                   // tocar el ícono lo elige
+      L.DomEvent.stopPropagation(ev);
+      choosePoint(endpoint(l[0], l[1], l[4], l[2], l[3]));
+    });
+    return m;
+  })).addTo(map);
+}
+
+function clearBoard() {                    // deja el mapa limpio (sin borrar el estado)
+  if (revealLayer) { map.removeLayer(revealLayer); revealLayer = null; }
+  if (bridgeLayer) { map.removeLayer(bridgeLayer); bridgeLayer = null; }
+  clearWin();
+  crossings = []; cutNow = new Map(); reachA = new Set(); reachB = new Set();
+  markers.forEach(m => map.removeLayer(m)); markers = [];
+  layers.forEach((l, i) => {
+    if (l) { map.removeLayer(l.shadow); map.removeLayer(l.case); map.removeLayer(l.core);
+             layers[i] = null; }
+  });
+}
+
+function drawBoard() {                     // redibuja el juego actual desde su estado
+  clearBoard();
+  if (!game) return;
+  addMarker(game.A, "A", ENDS.A.hex); addMarker(game.B, "B", ENDS.B.hex);
+  refresh();
+}
+
+// Distancia en metros del punto de un extremo a la calle suya más cercana.
+// Es el radio donde arranca el halo: en una esquina da ~0, en un parque da los
+// cientos de metros que hay del centro del parque a la vereda.
+function nearMeters(inter) {
+  const lon = inter[0], lat = inter[1], k = Math.cos(lat * Math.PI / 180);
+  let best = Infinity;
+  for (const i of inter[2]) for (const line of toLatLngs(S[i].g))
+    for (const [la, lo] of line) {
+      const dx = (lo - lon) * k * 111320, dy = (la - lat) * 110574;
+      const d = dx * dx + dy * dy;
+      if (d < best) best = d;
+    }
+  return isFinite(best) ? Math.sqrt(best) : 0;
+}
+
+function startWith(p, seed) {
+  if (!p) return;
+  clearBoard();
+  stopTimer();
+  game = { ...p, setA: new Set(p.A[2]), setB: new Set(p.B[2]),
+           r0A: nearMeters(p.A), r0B: nearMeters(p.B),
+           named: new Set(), order: [], used: 0, over: false, seed,
+           t0: null, tEnd: null, prevBest: bestTime[mode] };
+  applyTiles();
+  addMarker(game.A, "A", ENDS.A.hex); addMarker(game.B, "B", ENDS.B.hex);
+  map.fitBounds(L.latLngBounds([game.A[1], game.A[0]], [game.B[1], game.B[0]]).pad(0.35));
+  els.obj.innerHTML = `Conecta <b>${cornerName(game.A)}</b> con <b>${cornerName(game.B)}</b>`;
+  els.chips.innerHTML = ""; els.msg.textContent = "";
+  els.guess.value = ""; els.guess.disabled = false;
+  $("res").style.display = "none"; showOverlay(false);
+  updateTries();
+  window.__gameReady = true;
+}
+
+// ---------- Cronómetro (modo ciego) ----------
+function fmt(ms) {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+function elapsed() {
+  if (!game || !game.t0) return 0;
+  return (game.tEnd || performance.now()) - game.t0;
+}
+function startTimer() {
+  if (game.t0) return;
+  game.t0 = performance.now();
+  timerId = setInterval(updateTries, 250);
+}
+function stopTimer() { if (timerId) { clearInterval(timerId); timerId = null; } }
+
+function updateTries() {
+  if (!game) return;
+  if (blind) {
+    // "mejor" es la marca traída de partidas anteriores, no la recién hecha
+    els.tries.textContent =
+      `⏱ ${game.t0 ? fmt(elapsed()) : "0:00"} · ${game.order.length} ` +
+      `${game.order.length === 1 ? "calle" : "calles"}` +
+      (game.prevBest !== null ? ` · mejor: ${fmt(game.prevBest)}` : "");
+    return;
+  }
+  const extra = game.over && game.used > game.opt
+    ? ` · ${game.used - game.opt} de más` : "";
+  els.tries.textContent =
+    `Intentos: ${game.used} · óptimo: ${game.opt} calles${extra}`;
+}
+
+function connected() {
+  const inA = [...game.A[2]].filter(s => game.named.has(s));
+  const target = new Set([...game.B[2]].filter(s => game.named.has(s)));
+  if (!inA.length || !target.size) return false;
+  const seen = new Set(inA); let q = inA;
+  while (q.length) {
+    const nq = [];
+    for (const u of q) {
+      if (target.has(u)) return true;
+      for (const v of S[u].a) if (game.named.has(v) && !seen.has(v)) { seen.add(v); nq.push(v); }
+    }
+    q = nq;
+  }
+  return false;
+}
+
+// Cada estado se distingue por TRES señales a la vez: color, tipo de trazo y
+// símbolo. Así funciona igual sin poder diferenciar los colores.
+// `dash` es el tipo de trazo (no un patrón fijo: el ancho lo pone strokeStyles)
+// y `lift` la prominencia: +1 se dibuja más grueso y por encima, -1 más fino y
+// por debajo, para que lo que sirve destaque sobre lo que no.
+const STATES = {
+  good: { hex: "#0072B2", dash: null,  sym: "✓", lift:  1, label: "¡en la ruta óptima!" },
+  warn: { hex: "#E69F00", dash: "dash", sym: "≈", lift:  0, label: "cerca de la ruta" },
+  bad:  { hex: "#CC79A7", dash: "dot",  sym: "✕", lift: -1, label: "lejos de la ruta" },
+};
+// En modo ciego no interesa la optimalidad: una calle nombrada está unida a tu
+// camino (por A o por B, encadenando las que ya nombraste) o todavía suelta.
+// Una calle suelta puede volverse conectada más tarde, así que el estado se
+// recalcula entero en cada jugada.
+const BSTATES = {
+  conn:  { hex: "#0072B2", dash: null, sym: "✓", lift:  1, label: "conectada a tu camino" },
+  loose: { hex: "#6b7280", dash: "dot", sym: "○", lift: -1, label: "todavía suelta" },
+};
+
+// Calles nombradas que se encadenan hasta alguna de las de `seed`
+function reachFrom(seed) {
+  const seen = new Set(), q = [];
+  const push = s => { if (game.named.has(s) && !seen.has(s)) { seen.add(s); q.push(s); } };
+  seed.forEach(push);
+  while (q.length) { const u = q.pop(); for (const v of S[u].a) push(v); }
+  return seen;
+}
+function connectedNamed() {                   // calles nombradas unidas a A o a B
+  return new Set([...reachFrom(game.A[2]), ...reachFrom(game.B[2])]);
+}
+
+function namedGroups() {                      // nombre -> {idxs, th}
+  const groups = new Map();
+  for (const i of game.named) {
+    const th = game.dO[i] + game.dD[i], g = groups.get(S[i].n);
+    if (!g) groups.set(S[i].n, { idxs: [i], th });
+    else { g.idxs.push(i); g.th = Math.min(g.th, th); }
+  }
+  return groups;
+}
+
+// Repinta calles y chips desde cero según el estado actual. Es lo que permite
+// que en modo ciego una calle suelta se ponga azul cuando el camino la alcanza.
+function refresh() {
+  if (!game) return null;
+  reachA = reachFrom(game.A[2]); reachB = reachFrom(game.B[2]);
+  const groups = namedGroups();
+  const conn = blind ? new Set([...reachA, ...reachB]) : null;
+  const stateOf = g => blind
+    ? (g.idxs.some(i => conn.has(i)) ? BSTATES.conn : BSTATES.loose)
+    : colorForTh(g.th);
+  // primero lo lejano y al final lo bueno: así el orden dentro de cada pane
+  // queda con la ruta arriba aunque se hayan nombrado en cualquier orden
+  const byLift = [...groups.values()].sort((a, b) =>
+    (stateOf(a).lift || 0) - (stateOf(b).lift || 0));
+  for (const g of byLift) {
+    const st = stateOf(g);
+    for (const i of g.idxs) paintStreet(i, st);
+  }
+  crossings = findCrossings();
+  applyBridges();
+  els.chips.innerHTML = "";
+  for (const name of game.order) {
+    const g = groups.get(name);
+    if (!g) continue;
+    const st = stateOf(g);
+    const chip = document.createElement("span");
+    chip.className = "chip"; chip.style.background = st.hex;
+    chip.textContent = `${st.sym} ${name}`;
+    // si alguno de los tramos con este nombre toca un extremo, se marca en el chip
+    const tags = new Set(g.idxs.map(endTouch).filter(Boolean).flatMap(t => [...t]));
+    if (tags.size) {
+      const b = document.createElement("i");
+      b.className = "end"; b.textContent = [...tags].sort().join("");
+      // la pastilla lleva el color del extremo: es el mismo que se enciende
+      // en la calle sobre el mapa
+      b.style.background = tags.size === 1
+        ? ENDS[[...tags][0]].hex
+        : `linear-gradient(90deg,${ENDS.A.hex} 45%,${ENDS.B.hex} 55%)`;
+      chip.appendChild(b);
+    }
+    els.chips.appendChild(chip);
+  }
+  return conn;
+}
+
+function colorForTh(th) {                     // th = dO+dD; opt+1 si está en la ruta óptima
+  if (th <= game.opt + 1) return STATES.good;
+  if (th <= game.opt + 3) return STATES.warn;
+  return STATES.bad;
+}
+const colorFor = s => colorForTh(game.dO[s] + game.dD[s]);
+
+function guess(text) {
+  if (!game || game.over) return;
+  // 1º intento exacto con el texto completo ("avenida balmaceda" no arrastra
+  // a "pasaje balmaceda"); si no hay, se abre a las variantes sin prefijo
+  const full = normalize(text);
+  let matches = new Set(keyIndex.get(full) || keyIndex.get(expandAbbr(full)) ||
+                        keyIndex.get(full.replace(/ /g, "")) || []);
+  if (!matches.size) {
+    const ks = keysOf(text);
+    for (const k of ks) (keyIndex.get(k) || []).forEach(i => matches.add(i));
+  }
+  if (!matches.size) {
+    // sin match exacto: acepta si hay UNA sola calle sugerida para ese texto
+    const { list } = suggestions(text);
+    if (list.length === 1)
+      return play(list[0][1].idxs.filter(i => !game.named.has(i)), true);
+    if (list.length > 1) {
+      els.guess.classList.remove("shake"); void els.guess.offsetWidth;
+      els.guess.classList.add("shake");
+      els.msg.textContent = "Hay varias calles que calzan — elige una de la lista";
+      return;
+    }
+  }
+  const existed = matches.size > 0;
+  play([...matches].filter(i => !game.named.has(i)), existed);
+}
+
+function play(matches, existed) {
+  if (!game || game.over) return;
+  if (!matches.length) {
+    els.guess.classList.remove("shake"); void els.guess.offsetWidth;
+    els.guess.classList.add("shake");
+    els.msg.textContent = existed
+      ? "Esa calle ya la nombraste" : "No existe esa calle en esta zona";
+    return;
+  }
+  game.used++;
+  if (blind) startTimer();           // el reloj arranca con el primer intento
+  for (const i of matches) {
+    game.named.add(i);
+    if (!game.order.includes(S[i].n)) game.order.push(S[i].n);
+  }
+  // Homónimas: todos los tramos con el mismo nombre comparten el estado del
+  // mejor de ellos, para que el mapa concuerde con el chip.
+  const conn = refresh();
+  let st;
+  if (blind) {
+    st = matches.some(i => conn.has(i)) ? BSTATES.conn : BSTATES.loose;
+  } else {
+    st = colorFor(matches.reduce((a, b) =>
+      game.dO[a] + game.dD[a] <= game.dO[b] + game.dD[b] ? a : b));
+  }
+  els.msg.textContent = `${st.sym} ${st.label}`;
+  els.msg.style.color = st.hex;
+  els.guess.value = ""; hideSuggest(); updateTries();
+  if (connected()) return end();           // intentos ilimitados: solo se gana
+}
+
+function optimalChain() {
+  // reconstruye una cadena óptima A->B para revelarla
+  let cur = [...game.B[2]].filter(s => game.dO[s] === game.opt)
+    .sort((a, b) => S[a].c - S[b].c)[0];
+  const chain = [cur];
+  while (game.dO[cur] > 1) {
+    cur = S[cur].a.find(v => game.dO[v] === game.dO[cur] - 1);
+    chain.push(cur);
+  }
+  return chain.reverse();
+}
+
+function end() {
+  game.over = true; els.guess.disabled = true;
+  if (blind) { game.tEnd = performance.now(); stopTimer(); applyTiles(); refresh(); }
+  const chain = optimalChain();
+  // halo ancho por detrás: marca la ruta óptima sin tapar tus propias calles
+  revealLayer = L.layerGroup(chain.map(i =>
+    L.polyline(toLatLngs(S[i].g), { renderer: R.reveal, interactive: false })
+  )).addTo(map);
+  styleReveal();
+  const ruta = `Una ruta mínima era de ${game.opt} calles:` +
+               `<br><b>${chain.map(i => S[i].n).join(" → ")}</b>`;
+  if (blind) {
+    const t = elapsed(), prev = game.prevBest;
+    const record = prev !== null && t < prev;
+    if (prev === null || t < prev) bestTime[mode] = t;
+    $("ovTitle").textContent = record
+      ? `¡Nueva mejor marca: ${fmt(t)}! ⏱` : `¡Conectado en ${fmt(t)}! 🕶️`;
+    $("ovText").innerHTML =
+      `Cerraste el camino con <b>${game.order.length}</b> ` +
+      `${game.order.length === 1 ? "calle" : "calles"}` +
+      `${prev !== null && !record ? ` (tu mejor tiempo sigue siendo ${fmt(prev)})` : ""}.` +
+      `<br><br>Ya volvieron los nombres al mapa. En azul, tu recorrido de punta ` +
+      `a punta. ${ruta}`;
+  } else {
+    const perfecto = game.used === game.opt;
+    $("ovTitle").textContent = perfecto ? "¡Conectado, y en el mínimo! 🎉" : "¡Conectado! 🎉";
+    $("ovText").innerHTML =
+      `Lo lograste en <b>${game.used}</b> ${game.used === 1 ? "intento" : "intentos"}` +
+      `${perfecto ? "" : ` (el mínimo era ${game.opt})`}.<br><br>` +
+      `En azul, tu recorrido de punta a punta. Marcada en gris: ${ruta}`;
+  }
+  $("res").style.display = "";
+  updateTries();
+  const route = winRoute();
+  window.__lastResult = { win: true, used: game.used, opt: game.opt, blind,
+                          ms: blind ? Math.round(elapsed()) : null,
+                          chain: chain.map(i => S[i].n),
+                          routePts: route ? route.length : 0 };
+  // el cartel taparía la animación: aparece cuando el camino terminó de dibujarse
+  if (route) drawWin(route, () => setTimeout(() => showOverlay(true), 220));
+  else showOverlay(true);
+}
+
+function showOverlay(on) { els.overlay.style.display = on ? "flex" : "none"; }
+
+// ---------- Autocompletar ----------
+let selIdx = -1, sugIdxs = [];
+function hideSuggest() { els.suggest.style.display = "none"; selIdx = -1; sugIdxs = []; }
+const esc = t => t.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function suggestions(qraw) {
+  const q = normalize(qraw);
+  if (q.length < 2) return { q, list: [] };
+  // Se busca con lo escrito, con las abreviaturas expandidas ("av" -> "avenida")
+  // y también sin el prefijo ("pje los aromos" -> "los aromos", que es como se
+  // llama la calle de verdad). Lo escrito y lo expandido valen igual; lo que
+  // matcheó recién después de sacar el prefijo va penalizado, para que "av
+  // balmaceda" siga mostrando primero la avenida y recién después el pasaje.
+  const base = [...new Set([q, expandAbbr(q)])];
+  const bare = new Set();
+  for (const v of base) {
+    let n = v, st = n.replace(PREFIX, "");
+    while (st !== n) { n = st; if (n.length >= 3) bare.add(n); st = n.replace(PREFIX, ""); }
+  }
+  base.forEach(v => bare.delete(v));
+  const qs = base.map(v => [v, 0]).concat([...bare].map(v => [v, 3]));
+  // cada sugerencia recuerda con qué variante matcheó: es la que hay que resaltar
+  const scored = new Map();                       // idx -> [score, clave, consulta]
+  for (const [k, idxs] of keyIndex) {
+    let score = -1, hit = q;
+    for (const [qq, pen] of qs) {
+      let sc = -1;
+      if (k.startsWith(qq)) sc = 0;
+      else {
+        const pos = k.indexOf(qq);
+        if (pos > 0) sc = k[pos - 1] === " " ? 1 : 2;
+      }
+      if (sc >= 0 && (score < 0 || sc + pen < score)) { score = sc + pen; hit = qq; }
+    }
+    if (score < 0) continue;
+    for (const i of idxs) {
+      if (game.named.has(i)) continue;
+      const prev = scored.get(i);
+      if (!prev || score < prev[0]) scored.set(i, [score, k, hit]);
+    }
+  }
+  const byName = new Map();          // agrupar homónimas bajo un solo renglón
+  for (const [i, [score, k, hit]] of scored) {
+    const g = byName.get(S[i].n);
+    if (!g) byName.set(S[i].n, { idxs: [i], score, k, q: hit, c: S[i].c });
+    else {
+      g.idxs.push(i);
+      if (score < g.score) { g.score = score; g.k = k; g.q = hit; }
+      g.c = Math.min(g.c, S[i].c);
+    }
+  }
+  const list = [...byName.entries()]
+    .sort((a, b) => a[1].score - b[1].score || a[1].c - b[1].c ||
+                    a[0].localeCompare(b[0], "es"))
+    .slice(0, 8);
+  return { q, list };                // entradas: [nombre, {idxs, score, k, c}]
+}
+
+function highlight(name, q) {
+  let norm = "", idxmap = [];                     // normalizado char->índice original
+  for (let i = 0; i < name.length; i++) {
+    let c = name[i].normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase()
+                   .replace(/[^a-z0-9 ]+/g, " ");
+    for (const ch of c) { norm += ch; idxmap.push(i); }
+  }
+  let pos = norm.indexOf(q), qlen = q.length, map = idxmap, hay = norm;
+  if (pos < 0) {                                  // reintento sin espacios ("ohig")
+    hay = ""; map = [];
+    for (let j = 0; j < norm.length; j++)
+      if (norm[j] !== " ") { hay += norm[j]; map.push(idxmap[j]); }
+    pos = hay.indexOf(q.replace(/ /g, ""));
+    qlen = q.replace(/ /g, "").length;
+  }
+  if (pos < 0) return esc(name);
+  const s = map[pos], e = map[pos + qlen - 1] + 1;
+  return esc(name.slice(0, s)) + "<b>" + esc(name.slice(s, e)) + "</b>" + esc(name.slice(e));
+}
+
+function renderSuggest() {
+  const { q, list } = suggestions(els.guess.value);
+  if (!list.length || game.over) return hideSuggest();
+  sugIdxs = list.map(([, g]) => g.idxs);
+  els.suggest.innerHTML = list.map(([name, g]) => {
+    const gq = g.q || q;
+    const main = highlight(name, gq);
+    // si matcheó por un alias real que no aparece en el nombre, mostrarlo
+    const viaAlias = !SPACELESS.has(g.k) && !normalize(name).includes(gq) &&
+      !normalize(name).replace(/ /g, "").includes(gq)
+      ? `<span class="sug-alias">(${esc(g.k)})</span>` : "";
+    const count = g.idxs.length > 1
+      ? `<span class="sug-alias">×${g.idxs.length}</span>` : "";
+    return `<div>${main}${viaAlias}${count}</div>`;
+  }).join("");
+  els.suggest.style.display = "block";
+  selIdx = -1;
+  [...els.suggest.children].forEach((d, j) => {
+    d.addEventListener("mousedown", e => { e.preventDefault(); pick(j); });
+    d.addEventListener("mouseenter", () => setSel(j));
+  });
+}
+
+function setSel(j) {
+  selIdx = j;
+  [...els.suggest.children].forEach((d, i) => d.classList.toggle("sel", i === selIdx));
+}
+
+function pick(j) {                                // jugar la sugerencia elegida
+  const idxs = sugIdxs[j];
+  if (!idxs) return;
+  els.guess.value = "";
+  hideSuggest();
+  play(idxs.filter(i => !game.named.has(i)), true);
+}
+
+// cualquier click o tecla completa el dibujo del camino de una vez
+const skipWin = () => { if (winEnd) winEnd(); };
+document.addEventListener("pointerdown", skipWin, true);
+document.addEventListener("keydown", skipWin, true);
+
+els.guess.addEventListener("animationend", () => els.guess.classList.remove("shake"));
+els.guess.addEventListener("input", renderSuggest);
+els.guess.addEventListener("focus", renderSuggest);
+els.guess.addEventListener("blur", () => setTimeout(hideSuggest, 150));
+els.guess.addEventListener("keydown", e => {
+  const n = els.suggest.children.length;
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    if (!n) return;
+    e.preventDefault();
+    setSel(((selIdx < 0 ? (e.key === "ArrowDown" ? -1 : 0) : selIdx) +
+            (e.key === "ArrowDown" ? 1 : -1) + n) % n);
+  } else if (e.key === "Tab") {                   // completar sin jugar
+    if (n) {
+      e.preventDefault();
+      els.guess.value = S[sugIdxs[Math.max(selIdx, 0)][0]].n;
+      renderSuggest();
+    }
+  } else if (e.key === "Enter") {
+    if (selIdx >= 0) pick(selIdx);
+    else guess(els.guess.value);
+  } else if (e.key === "Escape") hideSuggest();
+});
+// ---------- Índice espacial: qué calle hay bajo un punto del mapa ----------
+// Se arma una grilla de ~500 m con las polilíneas de todas las calles. Se
+// construye en tiempo ocioso para no retrasar el arranque.
+const CELL = 0.005;
+let geo = null;
+
+function buildGeoIndex() {
+  const grid = new Map(), lines = [];
+  const put = (lat, lng, id) => {
+    const k = Math.floor(lat / CELL) + ":" + Math.floor(lng / CELL);
+    let a = grid.get(k);
+    if (!a) grid.set(k, a = []);
+    if (a[a.length - 1] !== id) a.push(id);
+  };
+  for (let i = 0; i < S.length; i++) {
+    for (const enc of S[i].g) {
+      const pts = decodeLine(enc);            // [[lat,lng], ...]
+      if (pts.length < 2) continue;
+      const id = lines.length;
+      lines.push({ s: i, pts });
+      for (let j = 0; j < pts.length; j++) {
+        put(pts[j][0], pts[j][1], id);
+        if (j + 1 < pts.length) {             // muestrear tramos largos
+          const [y1, x1] = pts[j], [y2, x2] = pts[j + 1];
+          const n = Math.ceil(Math.max(Math.abs(y2 - y1), Math.abs(x2 - x1)) / (CELL / 2));
+          for (let t = 1; t < n; t++)
+            put(y1 + (y2 - y1) * t / n, x1 + (x2 - x1) * t / n, id);
+        }
+      }
+    }
+  }
+  return { grid, lines };
+}
+
+function seg2(px, py, ax, ay, bx, by) {       // distancia² punto-segmento
+  const dx = bx - ax, dy = by - ay;
+  const l2 = dx * dx + dy * dy;
+  let t = l2 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  const cx = px - (ax + t * dx), cy = py - (ay + t * dy);
+  return cx * cx + cy * cy;
+}
+
+function streetAt(latlng, px = 14) {          // calle bajo el cursor, o null
+  if (!geo) geo = buildGeoIndex();
+  const k = Math.cos(latlng.lat * Math.PI / 180);
+  const p = map.latLngToContainerPoint(latlng);
+  const tol = Math.abs(map.containerPointToLatLng([p.x + px, p.y]).lng - latlng.lng) * k;
+  const tol2 = tol * tol;
+  const ci = Math.floor(latlng.lat / CELL), cj = Math.floor(latlng.lng / CELL);
+  const seen = new Set();
+  let best = null, bestD = tol2;
+  for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
+    const arr = geo.grid.get((ci + a) + ":" + (cj + b));
+    if (!arr) continue;
+    for (const id of arr) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const { s, pts } = geo.lines[id];
+      for (let j = 0; j + 1 < pts.length; j++) {
+        const d = seg2(latlng.lat, latlng.lng * k,
+                       pts[j][0], pts[j][1] * k, pts[j + 1][0], pts[j + 1][1] * k);
+        if (d < bestD) { bestD = d; best = s; }
+      }
+    }
+  }
+  return best;
+}
+
+// ---------- Modo de juego ----------
+// El juego tiene tres modos y se entra a todos desde el menú principal:
+//   lugares  — el modo principal: a ciegas, entre dos lugares icónicos
+//   esquinas — igual, pero entre dos esquinas
+//   practica — el juego con los nombres a la vista, sin reloj y con ayudas
+// Por debajo siguen siendo las dos variables de siempre (`mode` y `blind`);
+// `gameMode` es lo que decide qué se le ofrece al jugador.
+let mode = "places";                           // "corners" | "places"
+let gameMode = "lugares";                      // "lugares" | "esquinas" | "practica"
+const isPractice = () => gameMode === "practica";
+
+function syncModes() {
+  [...$("modes").children].forEach(b => {
+    const on = b.dataset.mode === mode;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-checked", String(on));
+  });
+  $("modeHint").textContent = mode === "places"
+    ? "Conectá dos lugares icónicos. Con 📍 los elegís vos en el mapa."
+    : "Conectá dos esquinas de la ciudad.";
+}
+
+function applyModeUI() {
+  const prac = isPractice();
+  // Fuera de práctica las ayudas no existen: ni el selector de qué conectar
+  // (lo elige el modo) ni identificar calles apuntándolas.
+  $("modesRow").style.display = prac ? "" : "none";
+  $("practiceOpts").style.display = prac ? "" : "none";
+  $("blindNote").style.display = prac ? "none" : "";
+  $("optNames").disabled = !prac;
+  $("optNames").parentNode.classList.toggle("dim", !prac);
+  $("legend").style.display = blind ? "none" : "";
+  $("legendBlind").style.display = blind ? "" : "none";
+  // elegir los dos puntos solo tiene sentido cuando hay lugares en juego
+  $("pick").style.display = mode === "places" ? "" : "none";
+  syncModes();
+}
+
+function setGameMode(kind, restart = true) {
+  gameMode = kind;
+  blind = kind !== "practica";
+  if (kind === "lugares") mode = "places";
+  else if (kind === "esquinas") mode = "corners";
+  if (!isPractice()) {                         // sin ayudas fuera de práctica
+    opts.clickPlay = false; opts.hoverName = false;
+    $("optClick").checked = false; $("optNames").checked = false;
+  }
+  applyModeUI();
+  setHover(null);
+  setPicking(false);
+  if (restart) start();
+}
+
+function setMode(m) {                          // submodo dentro de práctica
+  if (m === mode) return;
+  mode = m;
+  applyModeUI();
+  setPicking(false);
+  start();
+}
+
+// Se mantiene por compatibilidad con los tests: a ciegas se entra por el modo
+// que corresponda, y "sin ciego" es práctica.
+function setBlind(on) {
+  if (on === blind) return;
+  setGameMode(on ? (mode === "corners" ? "esquinas" : "lugares") : "practica");
+}
+
+// ---------- Menú principal ----------
+function showMenu(on) {
+  $("menu").classList.toggle("open", on);
+  if (!on) return;
+  toggleSettings(false); showOverlay(false); setPicking(false);
+  for (const el of $("menu").querySelectorAll("[data-best]")) {
+    const t = bestTime[el.dataset.best];
+    el.textContent = t === null ? "" : ` Tu mejor marca: ${fmt(t)}.`;
+  }
+}
+
+// ---------- Opciones de accesibilidad ----------
+// En memoria: los artifacts no permiten localStorage.
+const opts = { clickPlay: false, hoverName: false };
+// Al terminar la partida el mapa pasa a modo exploración: siempre se puede
+// apuntar e identificar calles, sin importar la configuración.
+const playing = () => game && !game.over;
+// A ciegas no hay identificación gratis: si querés jugar con clics, podés, pero
+// el nombre recién aparece en el chip cuando la calle ya está jugada.
+const canPoint = () => (blind && playing())
+  ? opts.clickPlay
+  : (opts.clickPlay || opts.hoverName || (game && game.over));
+const showNames = () => (blind && playing())
+  ? false
+  : (opts.hoverName || (game && game.over));
+
+// ---------- Hover: resalta la calle bajo el cursor ----------
+let hoverLayer = null, hoverStreet = null, hoverPending = null, hoverTip = null;
+
+function setHover(i, latlng) {
+  if (i !== hoverStreet) {
+    hoverStreet = i;
+    if (hoverLayer) { map.removeLayer(hoverLayer); hoverLayer = null; }
+    if (hoverTip) { map.removeLayer(hoverTip); hoverTip = null; }
+    map.getContainer().style.cursor = i === null ? "" : "pointer";
+    if (i === null) return;
+    if (!game.named.has(i)) {
+      hoverLayer = L.polyline(toLatLngs(S[i].g),
+        { renderer: R.hover, interactive: false, ...hoverStyle() }).addTo(map);
+    }
+    if (showNames()) {
+      hoverTip = L.tooltip({ className: "ptlabel", direction: "top", offset: [0, -8] })
+        .setContent(S[i].n).setLatLng(latlng).addTo(map);
+    }
+  } else if (hoverTip && latlng) {
+    hoverTip.setLatLng(latlng);               // el tooltip sigue al cursor
+  }
+}
+
+map.on("mousemove", e => {
+  if (picking || !game || !canPoint()) return;
+  if (hoverPending) return;                   // como máximo un test por frame
+  hoverPending = requestAnimationFrame(() => {
+    hoverPending = null;
+    setHover(streetAt(e.latlng), e.latlng);
+  });
+});
+map.on("mouseout", () => setHover(null));
+
+// ---------- Modo "elegir los dos puntos" ----------
+let picking = false, pickA = null, pickMarkers = [];
+
+function nearestCorner(latlng) {           // esquina más cercana al click
+  let best = null, bestD = Infinity;
+  const clat = Math.cos(latlng.lat * Math.PI / 180);
+  for (const it of INT) {
+    const dx = (it[0] - latlng.lng) * clat, dy = it[1] - latlng.lat;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) { bestD = d; best = it; }
+  }
+  return best;
+}
+
+function clearPick() {
+  pickMarkers.forEach(m => map.removeLayer(m)); pickMarkers = [];
+  pickA = null;
+}
+
+function setPicking(on) {
+  picking = on;
+  setHover(null);                            // el cursor vuelve a la cruz
+  $("pick").classList.toggle("on", on);
+  $("map").classList.toggle("picking", on);
+  clearPick();
+  // Los íconos de todos los lugares se muestran SOLO mientras se elige;
+  // al terminar quedan únicamente los dos elegidos.
+  drawLandmarks(on && mode === "places");
+  if (on) {
+    clearBoard();                          // mapa limpio para elegir
+    els.msg.textContent = "";
+    els.obj.innerHTML = mode === "places"
+      ? "<b>Elige el lugar de partida</b> tocando un ícono del mapa"
+      : "<b>Elige el punto de partida</b> haciendo clic en el mapa";
+    els.guess.disabled = true;
+  } else if (game) {
+    // cancelado: restaura la partida que estaba en curso
+    if (!markers.length) drawBoard();
+    els.obj.innerHTML = `Conecta <b>${cornerName(game.A)}</b> con <b>${cornerName(game.B)}</b>`;
+    els.guess.disabled = game.over;
+  }
+}
+
+function pickMarker(inter, label) {
+  pickMarkers.push(addMarker(inter, label, (ENDS[label] || {}).hex || "#0f766e"));
+  markers.pop();                           // vive en pickMarkers, no en markers
+}
+
+function nearestLandmark(latlng) {          // lugar icónico más cercano
+  let best = null, bestD = Infinity;
+  const k = Math.cos(latlng.lat * Math.PI / 180);
+  for (const l of LMK) {
+    const dx = (l[0] - latlng.lng) * k, dy = l[1] - latlng.lat;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) { bestD = d; best = l; }
+  }
+  return best && endpoint(best[0], best[1], best[4], best[2], best[3]);
+}
+
+// Elegir un extremo (sirve igual para esquinas y para lugares)
+function choosePoint(p) {
+  if (!p) return;
+  if (!pickA) {
+    pickA = p;
+    pickMarker(p, "A");
+    els.obj.innerHTML = `Desde <b>${cornerName(p)}</b>. Ahora <b>elige el destino</b>`;
+    return;
+  }
+  if (p[0] === pickA[0] && p[1] === pickA[1]) {
+    els.msg.textContent = "Elige un punto distinto al de partida";
+    return;
+  }
+  // Validar que exista un camino de calles entre ambos extremos
+  const dO = bfs(pickA[2]);
+  const ds = p[2].map(s => dO[s]).filter(d => d > 0);
+  if (!ds.length) {
+    els.msg.textContent = "Esos dos puntos no están conectados — elige otro destino";
+    return;
+  }
+  const opt = Math.min(...ds);
+  const A = pickA;                         // setPicking(false) limpia pickA
+  setPicking(false);                       // también saca los íconos de elección
+  startWith({ A, B: p, dO, dD: bfs(p[2]), opt }, "custom");
+  els.msg.textContent = opt <= 2 ? "Puzzle corto: están casi al lado" : "";
+}
+
+map.on("click", e => {
+  if (!picking) return clickStreet(e.latlng);
+  choosePoint(mode === "places" ? nearestLandmark(e.latlng)
+                                : nearestCorner(e.latlng));
+});
+
+// Clic sobre una calle del mapa = jugarla, igual que escribir su nombre exacto
+// (juega también sus homónimas, como haría el texto).
+function clickStreet(latlng) {
+  if (!game || !canPoint()) return;
+  const i = streetAt(latlng);
+  if (i === null) return;
+  setHover(null);
+  if (game.over || game.named.has(i) || !opts.clickPlay) {
+    els.msg.textContent = S[i].n;             // solo identificarla, sin costo
+    return;
+  }
+  els.guess.value = "";
+  hideSuggest();
+  play(S.map((s, j) => (s.n === S[i].n && !game.named.has(j)) ? j : -1)
+        .filter(j => j >= 0), true);
+}
+
+// ---------- Panel de opciones ----------
+function toggleSettings(on) {
+  const open = on === undefined ? !$("settings").classList.contains("open") : on;
+  $("settings").classList.toggle("open", open);
+  $("cog").classList.toggle("on", open);
+  $("cog").setAttribute("aria-expanded", String(open));
+}
+$("cog").addEventListener("click", e => { e.stopPropagation(); toggleSettings(); });
+$("modes").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (b) setMode(b.dataset.mode);
+});
+document.addEventListener("click", e => {
+  if (!$("settings").contains(e.target) && e.target !== $("cog")) toggleSettings(false);
+});
+$("optClick").addEventListener("change", e => {
+  opts.clickPlay = e.target.checked;
+  if (opts.clickPlay && !opts.hoverName && !blind) {  // sin nombres sería a ciegas
+    opts.hoverName = true; $("optNames").checked = true;
+  }
+  if (!canPoint()) setHover(null);
+});
+$("optNames").addEventListener("change", e => {
+  opts.hoverName = e.target.checked;
+  setHover(null);
+});
+
+$("menu").addEventListener("click", e => {
+  const b = e.target.closest("button[data-go]");
+  if (!b || b.disabled) return;
+  showMenu(false);
+  setGameMode(b.dataset.go);
+});
+$("home").addEventListener("click", () => showMenu(true));
+$("ovMenu").addEventListener("click", () => { showOverlay(false); showMenu(true); });
+$("pick").addEventListener("click", () => setPicking(!picking));
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if ($("menu").classList.contains("open")) showMenu(false);
+  else if ($("settings").classList.contains("open")) toggleSettings(false);
+  else if (picking) setPicking(false);
+  else if (els.overlay.style.display === "flex") showOverlay(false);
+});
+
+$("go").addEventListener("click", () => guess(els.guess.value));
+$("new").addEventListener("click", () => { setPicking(false); start(); });
+// Al terminar, el resultado se puede cerrar para explorar el mapa y volver a
+// abrir con el botón 🏁 (o clic en el fondo / Esc).
+$("ovMap").addEventListener("click", () => showOverlay(false));
+$("res").addEventListener("click", () => showOverlay(true));
+els.overlay.addEventListener("click", e => {
+  if (e.target === els.overlay) showOverlay(false);
+});
+$("menu").addEventListener("click", e => { if (e.target === $("menu")) showMenu(false); });
+$("ovNew").addEventListener("click", () => { showOverlay(false); setPicking(false); start(); });
+
+window.game = { start, startWith, guess, state: () => game,
+                setPicking: v => setPicking(v), nearestCorner,
+                streetAt, clickStreet, opts, setMode, mode: () => mode,
+                setGameMode, gameMode: () => gameMode, showMenu,
+                setBlind, blind: () => blind, elapsed, bestTime,
+                optimalChain, streets: S, connectedNamed, endTouch, ENDS,
+                crossings: () => crossings,
+                reach: () => ({ A: [...reachA], B: [...reachB] }),
+                winRoute, namedChain,
+                // internas, para los tests de la ruta final
+                __dbg: { crossPoints, streetGraph, segDist, geoOf, INT } };
+if (!LMK.length) {                             // datos sin lugares: modo oculto
+  $("modesRow").style.display = "none";
+  for (const b of $("menu").querySelectorAll('[data-go="lugares"],[data-go="daily"]'))
+    b.disabled = true;
+}
+setGameMode(LMK.length ? "lugares" : "esquinas", false);
+start();                                       // hay partida detrás del menú
+showMenu(true);
+
+// el índice de clicks se arma en tiempo ocioso, después de que ya se puede jugar
+(window.requestIdleCallback || (f => setTimeout(f, 400)))(
+  () => { if (!geo) geo = buildGeoIndex(); });
+</script>
+</body>
+</html>

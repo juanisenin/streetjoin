@@ -1,0 +1,22 @@
+# extractos OSM (pesados, se redescargan)
+*.osm.pbf
+
+# dependencias
+node_modules/
+package-lock.json
+
+# python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# artefactos de test
+test_*.png
+
+# build viejo (la salida ahora es index.html en la raiz)
+web/streetjoin.html
+
+# scratch
+_to_delete/
