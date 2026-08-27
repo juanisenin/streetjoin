@@ -759,3 +759,17 @@ cruce de la ciudad entera.
   Avenida Maipú).
 - Capturas en escritorio y en viewport de celular con la comuna en el enunciado y en los
   globos, y del modo elegir-puntos con los 216 íconos (se dibujan en ~420 ms).
+
+### Elegir puntos: el mapa se quedaba donde estaba (2026-08-27)
+
+Reportado como "cuando pongo elegir ubicaciones no me aparecen las nuevas". Los 216
+íconos se creaban bien; el problema era el encuadre. `setPicking(true)` limpiaba el
+tablero pero no tocaba la vista, así que el mapa seguía donde lo había dejado la partida
+anterior — un puzzle de 8 km encuadrado a z13. Medido: **35 de 216 íconos dentro de la
+pantalla** (70 en el mejor de los casos). Con los 84 lugares viejos, todos céntricos, eso
+no se notaba; con la ciudad entera cubierta, el modo parecía no haber cambiado.
+
+Ahora al entrar se hace `fitBounds` sobre todos los lugares (215/216 visibles) y se
+guarda la vista previa para restaurarla si se cancela. Si se eligen los dos puntos no
+hace falta restaurar nada: `startWith()` reencuadra sobre A y B, y corre después de
+`setPicking(false)`.
