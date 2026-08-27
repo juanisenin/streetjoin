@@ -820,6 +820,68 @@ svg.leaflet-image-layer.leaflet-interactive path {
   #menu .go.primary em { color: rgba(255,255,255,.88); }
   #menu .best { font-weight: 600; }
   #menu .foot { font-size: 12px; color: var(--muted); margin-top: 12px; text-align: center; }
+  /* ---------- Desafío diario ---------- */
+  #daily {
+    position: fixed; inset: 0; z-index: 3100; display: none;
+    align-items: center; justify-content: center; padding: 20px;
+    background: rgba(28,25,23,.55); backdrop-filter: blur(3px);
+  }
+  #daily.open { display: flex; }
+  #daily .dcard {
+    background: var(--panel); border-radius: 18px; padding: 22px 24px 18px;
+    width: 100%; max-width: 480px; max-height: 100%; overflow: auto;
+    box-shadow: 0 24px 70px rgba(0,0,0,.3);
+  }
+  #daily h2 { font-size: 21px; letter-spacing: -.02em; }
+  #daily h2 span { color: var(--accent); }
+  #daily .dsub { font-size: 12.5px; color: var(--muted); margin: 3px 0 16px; }
+  #daily h3 { font-size: 12px; margin: 18px 0 8px; text-transform: uppercase;
+              letter-spacing: .06em; color: var(--muted); }
+  #dMine { background: var(--bg); border: 1.5px solid var(--line); border-radius: 12px;
+           padding: 12px 14px; }
+  #dMine .big { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #dMine .rank { color: var(--accent); }
+  #dMine .det { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+  #dNick { display: flex; gap: 8px; margin-top: 12px; }
+  #dNick input { flex: 1; min-width: 0; font-size: 15px; padding: 9px 11px;
+                 border: 1.5px solid var(--line); border-radius: 10px;
+                 background: var(--panel); outline: none; }
+  #dNick input:focus { border-color: var(--accent); }
+  /* table-layout fijo: con el ancho automático el apodo se quedaba sin espacio
+     y se truncaba a tres letras en el celular */
+  table.board { width: 100%; border-collapse: collapse; table-layout: fixed;
+                font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  table.board th { font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+                   color: var(--muted); font-weight: 600; padding: 0 6px 5px;
+                   text-align: left; }
+  table.board td { padding: 5px 6px; border-bottom: 1px solid var(--line);
+                   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.board tr:last-child td { border-bottom: 0; }
+  table.board .pos { color: var(--muted); width: 34px; }
+  table.board .t, table.board .s { text-align: right; }
+  table.board .t { width: 54px; }
+  table.board .s { color: var(--muted); width: 48px; }
+  table.board tr.me td { background: #f0fdfa; font-weight: 700; }
+  table.board tr.me td.pos, table.board tr.me td.s { color: var(--accent); }
+  .dlink { background: none; border: 0; padding: 0; font: inherit; font-size: 12.5px;
+           font-weight: 600; color: var(--accent); cursor: pointer; }
+  .dmore { display: block; margin: 9px auto 0; }
+  .hist { display: flex; align-items: stretch; gap: 3px; height: 108px; }
+  .hist .bar { flex: 1; min-width: 0; display: flex; flex-direction: column;
+               justify-content: flex-end; }
+  .hist .bar i { display: block; background: #e2e0dd; border-radius: 3px 3px 0 0; }
+  .hist .bar.me i { background: var(--accent); }
+  .hist .bar span { flex: none; height: 16px; line-height: 16px; font-size: 10px;
+                    color: var(--muted); text-align: center; overflow: hidden;
+                    white-space: nowrap; }
+  .hist .bar.me span { color: var(--accent); font-weight: 700; }
+  .histnote { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+  .histnote b { color: var(--ink); }
+  #daily .row { display: flex; gap: 8px; margin-top: 18px; }
+  #daily .row button { flex: 1; }
+  #dNote { font-size: 11.5px; color: var(--muted); margin-top: 11px;
+           text-align: center; line-height: 1.45; }
+  .dmsg { font-size: 13px; color: var(--muted); padding: 14px 0; line-height: 1.5; }
   .leaflet-container { font: inherit; }
   .ptlabel.epA { background: #00654A; }
   .ptlabel.epB { background: #8A3D00; }
@@ -857,10 +919,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <em>El modo principal: dos lugares icónicos, el mapa sin nombres y un
       cronómetro.<span class="best" data-best="places"></span></em>
     </button>
-    <button class="go" data-go="daily" disabled>
-      <b>📅 Desafío diario</b>
-      <em>El mismo puzzle para todos, una vez por día, con la distribución de
-      resultados. Pronto.</em>
+    <button class="go" data-go="daily">
+      <b>📅 Desafío diario <span id="dailyNum"></span></b>
+      <em>El mismo puzzle para todos, una sola vez por día. Ranking del día y
+      distribución de resultados.<span class="best" data-daily></span></em>
     </button>
     <button class="go" data-go="esquinas">
       <b>🚦 Esquinas a ciegas</b>
@@ -873,6 +935,25 @@ svg.leaflet-image-layer.leaflet-interactive path {
       puntos. Para aprenderse la ciudad sin apuro.</em>
     </button>
     <p class="foot">Volvés acá cuando quieras con el botón 🏠.</p>
+  </div>
+</div>
+<div id="daily">
+  <div class="dcard">
+    <h2>📅 Desafío diario <span id="dNum"></span></h2>
+    <p class="dsub" id="dDate"></p>
+    <div id="dMine"></div>
+    <div id="dNick" style="display:none">
+      <input id="dNickInput" maxlength="16" autocomplete="off" spellcheck="false"
+             placeholder="Tu apodo para el ranking">
+      <button id="dNickSave">Guardar</button>
+    </div>
+    <div id="dBoard"></div>
+    <div class="row">
+      <button id="dShare" class="secondary">Compartir</button>
+      <button id="dMap" class="secondary">Ver el mapa</button>
+      <button id="dMenu">Menú</button>
+    </div>
+    <p id="dNote"></p>
   </div>
 </div>
 <header>
@@ -940,6 +1021,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <div class="row">
     <button id="ovMap" class="secondary">Ver el mapa</button>
     <button id="ovMenu" class="secondary">Menú</button>
+    <button id="ovDaily" style="display:none">Ver el ranking 📊</button>
     <button id="ovNew">Jugar otro</button>
   </div>
 </div></div>
@@ -1024,6 +1106,43 @@ let timerId = null;
 const bestTime = { corners: null, places: null };
 const seedRnd = () => Math.floor(Math.random() * 1e9);
 function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+// ---------- Almacenamiento local ----------
+// El juego nació como artifact, donde no hay localStorage. Publicado en Pages sí
+// lo hay, pero puede fallar igual (ventana privada, cookies bloqueadas): todo
+// pasa por este envoltorio, con respaldo en memoria, para que nada reviente.
+const memStore = new Map();
+const store = {
+  get(k) {
+    try { const v = localStorage.getItem(k); if (v !== null) return v; } catch (e) {}
+    return memStore.has(k) ? memStore.get(k) : null;
+  },
+  set(k, v) { memStore.set(k, v); try { localStorage.setItem(k, v); } catch (e) {} },
+};
+function storeJSON(k, d = null) {
+  const v = store.get(k);
+  if (v === null) return d;
+  try { const p = JSON.parse(v); return p === null ? d : p; } catch (e) { return d; }
+}
+
+// ---------- El día ----------
+// Santiago es UTC−4. Se usa el desfase fijo, sin horario de verano: lo que
+// importa es que todos jueguen el mismo puzzle, no la hora exacta del corte.
+const TZ_MIN = -4 * 60, DAY_MS = 86400000;
+const DAILY_EPOCH = "2026-08-01";              // el desafío #1
+const SHARE_URL = "https://juanisenin.github.io/streetjoin/";
+const todayKey = (now = Date.now()) =>
+  new Date(now + TZ_MIN * 60000).toISOString().slice(0, 10);
+const dayNumber = key =>
+  Math.round((Date.parse(key) - Date.parse(DAILY_EPOCH)) / DAY_MS) + 1;
+const msToNextDay = (now = Date.now()) => DAY_MS - ((now + TZ_MIN * 60000) % DAY_MS);
+// Hash FNV de la fecha. Dos días seguidos tienen que dar puzzles sin ningún
+// parentesco, y semillas correlativas (el nº de día) no lo garantizan.
+function daySeed(key) {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0) % 1000000000;
+}
+
 
 // Un "extremo" del puzzle tiene la misma forma que una intersección
 // ([lon, lat, calles]) y puede llevar etiqueta e ícono si es un lugar.
@@ -1974,6 +2093,7 @@ function startWith(p, seed) {
   els.chips.innerHTML = ""; els.msg.textContent = "";
   els.guess.value = ""; els.guess.disabled = false;
   $("res").style.display = "none"; showOverlay(false);
+  $("ovDaily").style.display = "none"; $("ovNew").style.display = "";
   updateTries();
   window.__gameReady = true;
 }
@@ -1990,6 +2110,9 @@ function elapsed() {
 function startTimer() {
   if (game.t0) return;
   game.t0 = performance.now();
+  // El diario queda marcado como empezado en el primer intento: recargar la
+  // página no devuelve el reloj a cero ni cambia el puzzle.
+  if (game.daily && daily) saveDaily(daily.key, { started: Date.now() });
   timerId = setInterval(updateTries, 250);
 }
 function stopTimer() { if (timerId) { clearInterval(timerId); timerId = null; } }
@@ -2203,7 +2326,7 @@ function end() {
   if (blind) {
     const t = elapsed(), prev = game.prevBest;
     const record = prev !== null && t < prev;
-    if (prev === null || t < prev) bestTime[mode] = t;
+    if (!game.daily && (prev === null || t < prev)) bestTime[mode] = t;
     $("ovTitle").textContent = record
       ? `¡Nueva mejor marca: ${fmt(t)}! ⏱` : `¡Conectado en ${fmt(t)}! 🕶️`;
     $("ovText").innerHTML =
@@ -2227,6 +2350,7 @@ function end() {
                           ms: blind ? Math.round(elapsed()) : null,
                           chain: chain.map(i => S[i].n),
                           routePts: route ? route.length : 0 };
+  if (game.daily) recordDaily();
   // el cartel taparía la animación: aparece cuando el camino terminó de dibujarse
   if (route) drawWin(route, () => setTimeout(() => showOverlay(true), 220));
   else showOverlay(true);
@@ -2444,6 +2568,356 @@ function streetAt(latlng, px = 14) {          // calle bajo el cursor, o null
   return best;
 }
 
+// =====================================================================
+//  Desafío diario
+//  El mismo puzzle para todos, una vez por día, con ranking y distribución.
+//  Toda la red vive detrás de `net` (submitResult / fetchBoard): sin
+//  credenciales configuradas el juego funciona igual contra una población
+//  simulada, así se puede ver y probar la pantalla entera sin servidor.
+// =====================================================================
+
+// Completar con los datos del proyecto de Supabase (Settings → API Keys). La
+// clave pública es pública por diseño: viaja en el HTML. Lo que protege la tabla
+// es el RLS, ver docs/daily-supabase.sql
+const BACKEND = {
+  url: "https://zokomllpvaczuigyhyjl.supabase.co",
+  key: "sb_publishable_rC0JER9czrI7f2kZTiHTrQ_Ixu2M--L",
+};
+const online = () => !!(BACKEND.url && BACKEND.key);
+
+const NICK_MAX = 16;
+const cleanNick = s => String(s || "").replace(/\s+/g, " ").trim().slice(0, NICK_MAX);
+
+// Identidad del navegador: no es autenticación, solo evita que una recarga
+// cuente dos veces y le da al servidor con qué hacer el "un resultado por día".
+function playerId() {
+  let id = store.get("sj.player");
+  if (!id) {
+    id = (crypto.randomUUID && crypto.randomUUID()) ||
+      "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === "x" ? r : (r & 3 | 8)).toString(16);
+      });
+    store.set("sj.player", id);
+  }
+  return id;
+}
+
+// ---------- Capa de red ----------
+// Las claves nuevas de Supabase (sb_publishable_…) NO se pueden mandar en
+// Authorization: son opacas, no JWT, y el gateway rechaza el pedido. Las viejas
+// (anon, que son JWT y empiezan con "eyJ") sí lo esperan. Se distingue por la
+// forma de la clave, así funcionan las dos sin tener que configurar nada más.
+const isJWT = k => /^eyJ/.test(k);
+// El dashboard muestra tanto el Project URL como el endpoint REST completo:
+// se acepta cualquiera de los dos, con o sin barra final.
+const apiBase = () =>
+  BACKEND.url.replace(/\/+$/, "").replace(/\/rest\/v1$/, "") + "/rest/v1";
+async function rpc(fn, body) {
+  const headers = { "Content-Type": "application/json", apikey: BACKEND.key };
+  if (isJWT(BACKEND.key)) headers.Authorization = "Bearer " + BACKEND.key;
+  const r = await fetch(apiBase() + "/rpc/" + fn, {
+    method: "POST", headers, body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(fn + " " + r.status + ": " + (await r.text()));
+  return r.json();
+}
+const net = {
+  submitResult({ day, ms, streets, nick }) {
+    return online()
+      ? rpc("submit_daily", { p_day: day, p_player: playerId(), p_nick: nick || null,
+                              p_ms: ms, p_streets: streets })
+      : mockSubmit({ day, ms, streets, nick });
+  },
+  fetchBoard(day) {
+    return online() ? rpc("daily_board", { p_day: day, p_player: playerId() })
+                    : mockBoard(day);
+  },
+};
+
+// ---------- Población simulada (solo mientras no haya servidor) ----------
+// Determinista a partir de la fecha, así el histograma no cambia entre recargas.
+const MOCK_NICKS = ["mapocho", "laflaca", "pepeganga", "ñuñoíno", "zanjón", "vespucio",
+  "cerroblanco", "pichanga", "micro506", "elpela", "bandejón", "condorito", "matucana",
+  "lachimba", "sanpancho", "doñaflor", "kilómetro0", "quiltro", "charquicán", "elpituto",
+  "gasfíter", "valdivieso", "tíacarola", "chalaco", "dieciocho", "rutaq"];
+function mockPop(day) {
+  const rnd = mulberry(daySeed(day) ^ 0x9e3779b9);
+  const n = 70 + Math.floor(rnd() * 160);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const g = (rnd() + rnd() + rnd() + rnd() - 2) * 1.6;      // ~normal(0,1)
+    out.push({ nick: MOCK_NICKS[Math.floor(rnd() * MOCK_NICKS.length)],
+               ms: Math.round(Math.exp(5.55 + g * 0.4) * 1000),   // mediana ~4:15
+               streets: Math.max(3, Math.round(4.5 + Math.abs(g) * 1.7 + rnd())) });
+  }
+  return out;
+}
+function mockAll(day) {
+  const all = mockPop(day);
+  const own = storeJSON("sj.mock." + day, null);
+  if (own) all.push({ nick: own.nick, ms: own.ms, streets: own.streets, me: true });
+  return all.sort((a, b) => a.ms - b.ms);
+}
+async function mockSubmit({ day, ms, streets, nick }) {
+  store.set("sj.mock." + day, JSON.stringify({ nick: cleanNick(nick), ms, streets }));
+  const all = mockAll(day);
+  return { rank: all.findIndex(r => r.me) + 1, total: all.length };
+}
+async function mockBoard(day) {
+  const all = mockAll(day);
+  return { top: all.slice(0, 20).map(r => ({ nick: r.nick, ms: r.ms,
+                                             streets: r.streets, me: !!r.me })),
+           times: all.map(r => r.ms), streets: all.map(r => r.streets),
+           total: all.length };
+}
+
+// ---------- Estado del diario ----------
+let daily = null;                              // { key, n, st, board, … }
+const isDaily = () => gameMode === "daily";
+const dailyState = (key = todayKey()) => storeJSON("sj.daily." + key, null) || {};
+function saveDaily(key, patch) {
+  const next = Object.assign({}, dailyState(key), patch);
+  store.set("sj.daily." + key, JSON.stringify(next));
+  if (daily && daily.key === key) daily.st = next;
+  return next;
+}
+const dailyDone = (key = todayKey()) => !!dailyState(key).done;
+
+function startDaily() {
+  const key = todayKey(), st = dailyState(key);
+  daily = { key, n: dayNumber(key), st, board: null, boardFor: null,
+            loading: false, error: null };
+  const seed = daySeed(key);
+  startWith(newPuzzlePlaces(seed), seed);
+  if (!game) return;
+  game.daily = true;
+  game.prevBest = null;                        // el diario no compite contra tu marca
+  // Se juega una sola vez por día: si la partida ya estaba empezada, el reloj
+  // sigue corriendo desde el primer intento, no desde esta recarga. Recargar
+  // para que salga otro puzzle o para parar el cronómetro no sirve de nada.
+  if (st.started && !st.done) {
+    game.t0 = performance.now() - Math.min(Date.now() - st.started, DAY_MS);
+    if (!timerId) timerId = setInterval(updateTries, 250);
+    els.msg.textContent = "Seguís el diario de hoy — el reloj nunca se detuvo.";
+  }
+  updateTries();
+}
+
+// Al ganar: se guarda el resultado y se manda. El puesto vuelve del servidor.
+function recordDaily() {
+  if (!daily) return;
+  if (!daily.st.done)
+    saveDaily(daily.key, { done: true, ms: Math.round(elapsed()),
+                           streets: game.order.length, at: Date.now() });
+  $("ovNew").style.display = "none";
+  $("ovDaily").style.display = "";
+  sendDaily();
+}
+
+async function sendDaily(force = false) {
+  const key = daily ? daily.key : todayKey();
+  const st = dailyState(key);
+  if (!st.done || (st.sent && !force)) return;
+  try {
+    const r = await net.submitResult({ day: key, ms: st.ms, streets: st.streets,
+                                       nick: store.get("sj.nick") });
+    saveDaily(key, { sent: true, sendError: false,
+                     rank: r && r.rank, total: r && r.total });
+  } catch (e) {
+    console.warn("daily submit", e);
+    saveDaily(key, { sendError: true });
+  }
+  if (daily) { daily.board = null; daily.boardFor = null; }
+  if ($("daily").classList.contains("open")) { renderDaily(); loadBoard(); }
+}
+
+// ---------- Pantalla del diario ----------
+function openDaily(fromGame = false) {
+  const key = todayKey();
+  if (!daily || daily.key !== key)
+    daily = { key, n: dayNumber(key), st: dailyState(key), board: null, boardFor: null };
+  daily.st = dailyState(key);
+  daily.showAll = false; daily.editNick = false;
+  showOverlay(false); showMenu(false); toggleSettings(false);
+  $("dMap").style.display = fromGame ? "" : "none";
+  $("daily").classList.add("open");
+  renderDaily();
+  loadBoard();
+}
+const closeDaily = () => $("daily").classList.remove("open");
+
+async function loadBoard() {
+  if (daily.boardFor === daily.key && daily.board) return;
+  daily.loading = true; renderBoard();
+  try {
+    daily.board = await net.fetchBoard(daily.key);
+    daily.boardFor = daily.key; daily.error = null;
+  } catch (e) {
+    console.warn("daily board", e);
+    daily.board = null; daily.error = e;
+  }
+  daily.loading = false;
+  renderBoard();
+}
+
+const fmtDate = key => new Date(key + "T12:00:00Z")
+  .toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long",
+                                 timeZone: "UTC" });
+function fmtLeft(ms) {
+  const h = Math.floor(ms / 3600000), m = Math.floor(ms % 3600000 / 60000);
+  return h ? h + " h " + m + " min" : m + " min";
+}
+
+function renderDaily() {
+  const st = daily.st, nick = store.get("sj.nick");
+  $("dNum").textContent = "#" + daily.n;
+  $("dDate").textContent = fmtDate(daily.key) + " · el próximo, en " + fmtLeft(msToNextDay());
+  if (st.done) {
+    $("dMine").innerHTML =
+      '<div class="big">⏱ ' + fmt(st.ms) +
+      (st.rank ? ' · <span class="rank">puesto ' + st.rank + " de " + st.total + "</span>" : "") +
+      '</div><div class="det">' + st.streets + (st.streets === 1 ? " calle" : " calles") +
+      (nick ? ' · jugás como <b>' + esc(nick) + '</b> · <button class="dlink" ' +
+              'data-editnick>cambiar</button>' : "") +
+      (st.sendError ? " · <b>no se pudo enviar tu resultado</b>" : "") + "</div>";
+  } else {
+    $("dMine").innerHTML = '<div class="det">Todavía no jugaste el de hoy. ' +
+      "Es un solo intento: el cronómetro arranca con tu primera calle.</div>";
+  }
+  $("dNick").style.display = st.done && (!nick || daily.editNick) ? "flex" : "none";
+  $("dNickInput").placeholder = nick || "Tu apodo para el ranking";
+  $("dShare").style.display = st.done ? "" : "none";
+  $("dNote").textContent = online()
+    ? "Un puzzle por día para todos. El ranking es solo de hoy y se reinicia a medianoche."
+    : "Sin servidor configurado: el ranking y las distribuciones son una población " +
+      "simulada, para poder probar la pantalla.";
+  renderBoard();
+}
+
+function renderBoard() {
+  const el = $("dBoard"), b = daily.board, st = daily.st;
+  if (daily.loading) { el.innerHTML = '<p class="dmsg">Cargando el ranking del día…</p>'; return; }
+  if (!b) {
+    el.innerHTML = '<p class="dmsg">No se pudo cargar el ranking del día. ' +
+                   "Probá de nuevo en un rato.</p>";
+    return;
+  }
+  let h = "";
+  if (b.top && b.top.length) {
+    // De entrada van 10: el top entero empuja las distribuciones fuera de la
+    // pantalla, y son la mitad de la información.
+    const corte = daily.showAll ? b.top.length : Math.min(10, b.top.length);
+    h += "<h3>Los más rápidos de hoy</h3>" +
+      '<table class="board"><thead><tr><th class="pos">#</th><th>apodo</th>' +
+      '<th class="t">tiempo</th><th class="s">calles</th></tr></thead><tbody>' +
+      b.top.slice(0, corte).map((r, i) =>
+        '<tr class="' + (r.me ? "me" : "") + '"><td class="pos">' + (i + 1) + "</td>" +
+        '<td class="nick">' + esc(r.nick || "anónimo") + "</td>" +
+        '<td class="t">' + fmt(r.ms) + "</td>" +
+        '<td class="s">' + r.streets + "</td></tr>").join("") + "</tbody></table>";
+    if (corte < b.top.length)
+      h += '<button class="dlink dmore" data-more>Ver el top ' + b.top.length + " ↓</button>";
+    if (st.done && st.rank && st.rank > corte)
+      h += '<p class="histnote">Vos: <b>puesto ' + st.rank + "</b> de " + st.total +
+           ", con " + fmt(st.ms) + ".</p>";
+  }
+  h += histTime(b.times, st.done ? st.ms : null);
+  h += histStreets(b.streets, st.done ? st.streets : null);
+  el.innerHTML = h;
+}
+
+// Barras. La altura se calcula en píxeles y no en %: el rótulo de abajo ocupa
+// su parte de la caja, así que un % sobre el alto total se pasaría de largo.
+const HIST_PX = 88;
+function barsHTML(bins, mineIdx) {
+  const max = Math.max(1, ...bins.map(b => b.n));
+  const every = bins.length > 8 ? 2 : 1;       // con muchos bins, un rótulo sí uno no
+  return '<div class="hist">' + bins.map((b, i) =>
+    '<div class="bar' + (i === mineIdx ? " me" : "") + '" title="' + esc(b.title) + '">' +
+    '<i style="height:' + (b.n ? Math.max(3, Math.round(b.n / max * HIST_PX)) : 0) + 'px"></i>' +
+    "<span>" + (i % every === 0 || i === mineIdx ? esc(b.label) : "") + "</span></div>"
+  ).join("") + "</div>";
+}
+
+// "más rápido que el X%" dice más que el puesto cuando hay mucha gente, y es
+// justamente lo que hace legible una distribución.
+function pctLine(list, mine, phrase, lowerIsBetter = true) {
+  const worse = list.filter(v => lowerIsBetter ? v > mine : v < mine).length;
+  return '<p class="histnote">' + phrase + " el <b>" +
+         Math.round(worse / list.length * 100) + "%</b> de los que jugaron hoy.</p>";
+}
+
+// Los bins del tiempo se calculan con los resultados del día, no son fijos: la
+// distribución tiene que leerse bien tenga la forma que tenga.
+const NICE_S = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300, 600];
+function histTime(times, mine) {
+  if (!times || !times.length) return "";
+  const lo = Math.min(...times), hi = Math.max(...times);
+  const target = Math.max(hi - lo, 1000) / 9 / 1000;
+  const w = (NICE_S.find(s => s >= target) || NICE_S[NICE_S.length - 1]) * 1000;
+  const start = Math.floor(lo / w) * w;
+  const n = Math.min(12, Math.floor((hi - start) / w) + 1);
+  const bins = [];
+  for (let i = 0; i < n; i++)
+    bins.push({ n: 0, label: fmt(start + i * w),
+                title: fmt(start + i * w) + "–" + fmt(start + (i + 1) * w) });
+  const at = t => Math.min(n - 1, Math.max(0, Math.floor((t - start) / w)));
+  times.forEach(t => bins[at(t)].n++);
+  bins.forEach(b => { b.title += " · " + b.n; });
+  // Tu barra se rotula con tu tiempo real y no con el borde del bin: ver "3:00"
+  // resaltado cuando hiciste 4:07 se lee como un error. Sigue en orden, porque
+  // tu tiempo cae dentro del bin.
+  const mi = mine === null ? -1 : at(mine);
+  if (mi >= 0) bins[mi].label = fmt(mine);
+  return "<h3>Tiempos de hoy</h3>" + barsHTML(bins, mi) +
+         (mine === null ? "" : pctLine(times, mine, "Más rápido que"));
+}
+
+function histStreets(list, mine) {
+  if (!list || !list.length) return "";
+  const lo = Math.min(...list), hi = Math.min(Math.max(...list), lo + 14);
+  const bins = [];
+  for (let v = lo; v <= hi; v++)
+    bins.push({ n: 0, label: String(v), title: v + (v === 1 ? " calle" : " calles") });
+  list.forEach(s => { const i = Math.min(hi, s) - lo; if (i >= 0) bins[i].n++; });
+  bins.forEach(b => { b.title += " · " + b.n; });
+  return "<h3>Calles usadas</h3>" +
+         barsHTML(bins, mine === null ? -1 : Math.min(hi, mine) - lo) +
+         (mine === null ? "" : pctLine(list, mine, "Con menos calles que"));
+}
+
+// ---------- Compartir ----------
+function shareText() {
+  const st = daily.st;
+  const medal = st.rank === 1 ? "🥇" : st.rank === 2 ? "🥈" : st.rank === 3 ? "🥉" : "🏅";
+  return "StreetJoin 📅 #" + daily.n + "\n⏱ " + fmt(st.ms) + " · " + st.streets +
+         (st.streets === 1 ? " calle" : " calles") +
+         (st.rank ? "\n" + medal + " puesto " + st.rank + " de " + st.total : "") +
+         "\n" + SHARE_URL;
+}
+function flashShare(txt) {
+  const b = $("dShare"), old = b.textContent;
+  b.textContent = txt;
+  setTimeout(() => { b.textContent = old; }, 1600);
+}
+async function shareDaily() {
+  const txt = shareText();
+  try {
+    await navigator.clipboard.writeText(txt);
+    flashShare("¡Copiado!");
+    return;
+  } catch (e) {}
+  // Sin permiso de portapapeles (o sin https): el viejo truco del textarea
+  const ta = document.createElement("textarea");
+  ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch (e) {}
+  ta.remove();
+  flashShare(ok ? "¡Copiado!" : "No se pudo copiar");
+}
+
 // ---------- Modo de juego ----------
 // El juego tiene tres modos y se entra a todos desde el menú principal:
 //   lugares  — el modo principal: a ciegas, entre dos lugares icónicos
@@ -2477,15 +2951,17 @@ function applyModeUI() {
   $("optNames").parentNode.classList.toggle("dim", !prac);
   $("legend").style.display = blind ? "none" : "";
   $("legendBlind").style.display = blind ? "" : "none";
-  // elegir los dos puntos solo tiene sentido cuando hay lugares en juego
-  $("pick").style.display = mode === "places" ? "" : "none";
+  // elegir los dos puntos solo tiene sentido cuando hay lugares en juego, y en
+  // el diario no hay nada que elegir ni puzzle que volver a tirar
+  $("pick").style.display = mode === "places" && !isDaily() ? "" : "none";
+  $("new").style.display = isDaily() ? "none" : "";
   syncModes();
 }
 
 function setGameMode(kind, restart = true) {
   gameMode = kind;
   blind = kind !== "practica";
-  if (kind === "lugares") mode = "places";
+  if (kind === "lugares" || kind === "daily") mode = "places";
   else if (kind === "esquinas") mode = "corners";
   if (!isPractice()) {                         // sin ayudas fuera de práctica
     opts.clickPlay = false; opts.hoverName = false;
@@ -2494,6 +2970,7 @@ function setGameMode(kind, restart = true) {
   applyModeUI();
   setHover(null);
   setPicking(false);
+  if (kind === "daily") { startDaily(); return; }
   if (restart) start();
 }
 
@@ -2521,6 +2998,11 @@ function showMenu(on) {
     const t = bestTime[el.dataset.best];
     el.textContent = t === null ? "" : ` Tu mejor marca: ${fmt(t)}.`;
   }
+  const st = dailyState();
+  $("dailyNum").textContent = "#" + dayNumber(todayKey());
+  $("menu").querySelector("[data-daily]").textContent = st.done
+    ? ` Hoy: ${fmt(st.ms)}${st.rank ? ` · puesto ${st.rank} de ${st.total}` : ""}.`
+    : st.started ? " Lo dejaste a medias: seguí donde quedaste." : "";
 }
 
 // ---------- Opciones de accesibilidad ----------
@@ -2722,15 +3204,44 @@ $("optNames").addEventListener("change", e => {
 $("menu").addEventListener("click", e => {
   const b = e.target.closest("button[data-go]");
   if (!b || b.disabled) return;
+  // Si el diario de hoy ya está jugado, la tarjeta lleva al ranking y no a una
+  // partida nueva: es un solo intento por día.
+  if (b.dataset.go === "daily" && dailyDone()) { showMenu(false); openDaily(false); return; }
   showMenu(false);
   setGameMode(b.dataset.go);
+});
+$("ovDaily").addEventListener("click", () => openDaily(true));
+$("dMap").addEventListener("click", closeDaily);
+$("dMenu").addEventListener("click", () => { closeDaily(); showMenu(true); });
+$("dShare").addEventListener("click", shareDaily);
+$("daily").addEventListener("click", e => { if (e.target === $("daily")) closeDaily(); });
+$("dBoard").addEventListener("click", e => {
+  if (!e.target.closest("[data-more]")) return;
+  daily.showAll = true; renderBoard();
+});
+$("dMine").addEventListener("click", e => {
+  if (!e.target.closest("[data-editnick]")) return;
+  daily.editNick = true; renderDaily(); $("dNickInput").focus();
+});
+$("dNickSave").addEventListener("click", () => {
+  const v = cleanNick($("dNickInput").value);
+  if (!v) return;
+  store.set("sj.nick", v);
+  $("dNickInput").value = "";
+  daily.editNick = false;
+  renderDaily();
+  sendDaily(true);                             // re-enviar para que el ranking lo tome
+});
+$("dNickInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") $("dNickSave").click();
 });
 $("home").addEventListener("click", () => showMenu(true));
 $("ovMenu").addEventListener("click", () => { showOverlay(false); showMenu(true); });
 $("pick").addEventListener("click", () => setPicking(!picking));
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
-  if ($("menu").classList.contains("open")) showMenu(false);
+  if ($("daily").classList.contains("open")) closeDaily();
+  else if ($("menu").classList.contains("open")) showMenu(false);
   else if ($("settings").classList.contains("open")) toggleSettings(false);
   else if (picking) setPicking(false);
   else if (els.overlay.style.display === "flex") showOverlay(false);
@@ -2757,6 +3268,14 @@ window.game = { start, startWith, guess, state: () => game,
                 crossings: () => crossings,
                 reach: () => ({ A: [...reachA], B: [...reachB] }),
                 winRoute, namedChain,
+                // desafío diario
+                daily: { state: () => daily, today: todayKey, seed: daySeed,
+                         number: dayNumber, stored: dailyState, save: saveDaily,
+                         open: openDaily, close: closeDaily, done: dailyDone,
+                         share: shareText, net, online, store,
+                         // los tests apagan el backend para correr contra la
+                         // población simulada, sin tocar el ranking de verdad
+                         backend: BACKEND },
                 // internas, para los tests de la ruta final
                 __dbg: { crossPoints, streetGraph, segDist, geoOf, INT } };
 if (!LMK.length) {                             // datos sin lugares: modo oculto
