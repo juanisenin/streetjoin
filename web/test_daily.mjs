@@ -14,6 +14,9 @@ async function nueva() {
   pg.on("pageerror", e => errs.push(String(e)));
   await pg.goto(GAME);
   await pg.waitForFunction(() => window.__gameReady === true, null, { timeout: 30000 });
+  // Estas verificaciones corren contra la población simulada: apagar el backend
+  // las hace reproducibles y evita ensuciar el ranking real con partidas de test.
+  await pg.evaluate(() => { const b = window.game.daily.backend; b.url = ""; b.key = ""; });
   return { ctx, pg };
 }
 // Juega el diario completo con la cadena óptima y espera el cartel.

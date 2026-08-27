@@ -1910,9 +1910,13 @@ function streetAt(latlng, px = 14) {          // calle bajo el cursor, o null
 //  simulada, así se puede ver y probar la pantalla entera sin servidor.
 // =====================================================================
 
-// Completar con los datos del proyecto de Supabase (Settings → API). La anon key
-// es pública por diseño: lo que protege la tabla es el RLS, ver docs/daily-supabase.sql
-const BACKEND = { url: "", key: "" };
+// Completar con los datos del proyecto de Supabase (Settings → API Keys). La
+// clave pública es pública por diseño: viaja en el HTML. Lo que protege la tabla
+// es el RLS, ver docs/daily-supabase.sql
+const BACKEND = {
+  url: "https://zokomllpvaczuigyhyjl.supabase.co",
+  key: "sb_publishable_rC0JER9czrI7f2kZTiHTrQ_Ixu2M--L",
+};
 const online = () => !!(BACKEND.url && BACKEND.key);
 
 const NICK_MAX = 16;
@@ -1934,12 +1938,20 @@ function playerId() {
 }
 
 // ---------- Capa de red ----------
+// Las claves nuevas de Supabase (sb_publishable_…) NO se pueden mandar en
+// Authorization: son opacas, no JWT, y el gateway rechaza el pedido. Las viejas
+// (anon, que son JWT y empiezan con "eyJ") sí lo esperan. Se distingue por la
+// forma de la clave, así funcionan las dos sin tener que configurar nada más.
+const isJWT = k => /^eyJ/.test(k);
+// El dashboard muestra tanto el Project URL como el endpoint REST completo:
+// se acepta cualquiera de los dos, con o sin barra final.
+const apiBase = () =>
+  BACKEND.url.replace(/\/+$/, "").replace(/\/rest\/v1$/, "") + "/rest/v1";
 async function rpc(fn, body) {
-  const r = await fetch(BACKEND.url.replace(/\/+$/, "") + "/rest/v1/rpc/" + fn, {
-    method: "POST",
-    headers: { "Content-Type": "application/json",
-               apikey: BACKEND.key, Authorization: "Bearer " + BACKEND.key },
-    body: JSON.stringify(body),
+  const headers = { "Content-Type": "application/json", apikey: BACKEND.key };
+  if (isJWT(BACKEND.key)) headers.Authorization = "Bearer " + BACKEND.key;
+  const r = await fetch(apiBase() + "/rpc/" + fn, {
+    method: "POST", headers, body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(fn + " " + r.status + ": " + (await r.text()));
   return r.json();
@@ -2594,7 +2606,10 @@ window.game = { start, startWith, guess, state: () => game,
                 daily: { state: () => daily, today: todayKey, seed: daySeed,
                          number: dayNumber, stored: dailyState, save: saveDaily,
                          open: openDaily, close: closeDaily, done: dailyDone,
-                         share: shareText, net, online, store },
+                         share: shareText, net, online, store,
+                         // los tests apagan el backend para correr contra la
+                         // población simulada, sin tocar el ranking de verdad
+                         backend: BACKEND },
                 // internas, para los tests de la ruta final
                 __dbg: { crossPoints, streetGraph, segDist, geoOf, INT } };
 if (!LMK.length) {                             // datos sin lugares: modo oculto

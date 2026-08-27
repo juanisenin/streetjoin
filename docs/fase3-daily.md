@@ -70,9 +70,22 @@ que hace que un fallo de red no rompa el juego.
 Para enchufarlo:
 
 1. Correr `docs/daily-supabase.sql` entero en el SQL editor del proyecto.
-2. Copiar *Project URL* y *anon key* (Settings → API) al objeto `BACKEND` de
-   `web/template.html`.
-3. `python3 web/build_web.py`, commit y push.
+2. Copiar la URL y la clave **publicable** (Settings → Data API / API Keys) al
+   objeto `BACKEND` de `web/template.html`.
+3. `node web/test_daily_live.mjs` para verificar contra el Supabase real.
+4. `python3 web/build_web.py`, commit y push.
+
+**Las claves nuevas no son JWT.** Supabase reemplazó `anon` por claves
+publicables opacas (`sb_publishable_…`), y esas **no se pueden mandar en
+`Authorization: Bearer`** — el gateway rechaza el pedido. `rpc()` distingue por
+la forma de la clave (`^eyJ` = JWT viejo) y manda el header solo cuando
+corresponde, así funcionan las dos. `apiBase()` acepta tanto el *Project URL*
+como el endpoint REST completo, que es lo que uno termina copiando del
+dashboard.
+
+**El plan gratis pausa el proyecto tras una semana sin actividad.** Con gente
+jugando no pasa; si el juego queda quieto, hay que restaurarlo desde el
+dashboard.
 
 El esquema es una tabla con RLS activo y **ninguna política** — nadie la toca
 directo con la anon key. Todo pasa por dos funciones `security definer`:
@@ -112,6 +125,19 @@ separados para simular jugadores distintos:
 - con el diario jugado, la tarjeta del menú lleva al ranking;
 - la capa de red devuelve la forma esperada y la población simulada es
   determinista entre llamadas.
+
+Las verificaciones del navegador **apagan el backend** (`daily.backend`) y
+corren contra la población simulada: son reproducibles y no ensucian el ranking
+real con partidas de test.
+
+`web/test_daily_live.mjs` es el otro lado: sin navegador, contra el Supabase de
+verdad. Comprueba que las funciones existen y son ejecutables por `anon`, que el
+día del servidor coincide con el del cliente, que **la tabla no se toca directo**
+con la clave pública, que el puesto sale bien con dos jugadores, que el tiempo no
+se pisa pero el apodo sí se puede cambiar, la forma del tablero, y las cuatro
+validaciones del servidor (tiempo absurdo, calles absurdas, fecha vieja, fecha
+futura). Escribe con la fecha de **ayer** y uuids al azar, así el ranking que ve
+la gente queda intacto.
 
 `web/test_blind.mjs` completo sigue en verde, incluidas las 40 partidas del
 camino final y las 60 del desvío de ruta.
