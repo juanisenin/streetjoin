@@ -1924,6 +1924,13 @@ function clearPick() {
   pickA = null;
 }
 
+// Al entrar a elegir, el mapa se queda donde lo dejó la partida anterior. Con
+// los lugares repartidos por las 35 comunas eso deja fuera de pantalla a la
+// mayoría: se veían 35 de 216 íconos y parecía que los nuevos no estaban. Al
+// abrir el modo se encuadra la ciudad entera, y si se cancela vuelve la vista
+// que había (si se eligieron los dos puntos, startWith() reencuadra igual).
+let prePickView = null;
+
 function setPicking(on) {
   picking = on;
   setHover(null);                            // el cursor vuelve a la cruz
@@ -1935,6 +1942,10 @@ function setPicking(on) {
   drawLandmarks(on && mode === "places");
   if (on) {
     clearBoard();                          // mapa limpio para elegir
+    if (mode === "places" && LMK.length) {
+      prePickView = { c: map.getCenter(), z: map.getZoom() };
+      map.fitBounds(L.latLngBounds(LMK.map(l => [l[1], l[0]])).pad(0.04));
+    }
     els.msg.textContent = "";
     els.obj.innerHTML = mode === "places"
       ? "<b>Elige el lugar de partida</b> tocando un ícono del mapa"
@@ -1942,6 +1953,7 @@ function setPicking(on) {
     els.guess.disabled = true;
   } else if (game) {
     // cancelado: restaura la partida que estaba en curso
+    if (prePickView) { map.setView(prePickView.c, prePickView.z); prePickView = null; }
     if (!markers.length) drawBoard();
     els.obj.innerHTML = `Conecta <b>${cornerHTML(game.A)}</b> con <b>${cornerHTML(game.B)}</b>`;
     els.guess.disabled = game.over;
