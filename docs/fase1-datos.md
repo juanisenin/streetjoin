@@ -23,3 +23,17 @@
 
 - El frontend juega TODAS las entidades de una clave ("los aromos" ilumina las 26, 1 intento), pero un texto que matchea exacto un nombre completo ("Avenida Balmaceda") juega solo esas entidades.
 - Restricción del sandbox: sin acceso directo a servidores OSM; los datos entran por carpeta conectada del Mac.
+
+## Lugares icónicos (2026-08-27)
+
+`build_landmarks.py` escribe la clave `landmarks` de `city.json`: **216 lugares en las 35
+comunas del Gran Santiago**, ninguna con menos de 3. Cada registro es
+`[lon, lat, nombre, ícono, [índices de calles vecinas], comuna]`.
+
+- La comuna sale de `comunas-rm.geojson` (límites de las 52 comunas de la RM,
+  simplificados a ~40 m — 304 KB) y viaja en el JSON porque el juego la muestra: a ciegas,
+  "Parque Las Palmeras" sin "Renca" no es jugable.
+- Los candidatos se minan del propio extracto OSM y se curan a mano; cada entrada nueva
+  lleva una referencia `(lon, lat)` para desempatar, porque los nombres genéricos se
+  repiten entre comunas.
+- El detalle del criterio y de la medición está en `fase2-prototipo.md`.

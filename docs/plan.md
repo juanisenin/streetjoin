@@ -16,7 +16,7 @@ Se entra a todos desde el **menú principal**:
 
 | Modo | Qué es |
 |---|---|
-| **🕶️ Lugares a ciegas** | **El modo principal.** Dos lugares icónicos, el mapa sin ningún nombre y un cronómetro desde el primer intento. No importa usar pocas calles: importa cerrar el camino rápido. Sin ayudas de ningún tipo. |
+| **🕶️ Lugares a ciegas** | **El modo principal.** Dos lugares icónicos (216, al menos 3 en cada una de las 35 comunas del Gran Santiago), el mapa sin ningún nombre y un cronómetro desde el primer intento. No importa usar pocas calles: importa cerrar el camino rápido. Sin ayudas de ningún tipo. |
 | **📅 Desafío diario** | *(pendiente)* El mismo puzzle para todos, una vez por día, con la distribución de resultados. |
 | **🚦 Esquinas a ciegas** | Lo mismo, pero entre dos esquinas cualquiera de la ciudad. |
 | **🎓 Práctica** | El juego con los nombres a la vista, sin reloj, con intentos ilimitados, ayudas de accesibilidad (jugar con clics, ver el nombre al apuntar) y la opción de elegir vos los dos puntos. Para aprenderse la ciudad sin apuro. Acá sí se muestra el feedback de cercanía a la ruta óptima (verde/amarillo/rosa). |
@@ -56,7 +56,7 @@ La ciudad se modela como un **grafo de calles**: los nodos son intersecciones y 
 Pipeline OSM → `city.json` con todo el Gran Santiago. Ver `fase1-datos.md`.
 
 ### Fase 2 — Prototipo jugable ✅ (varias sesiones)
-Motor del juego, mapa, autocompletado, modo ciego, lugares icónicos, dibujo estilo navegador, cruces a distinto nivel, camino final animado y la reestructuración en modos con menú principal. Todo el detalle en `fase2-prototipo.md`.
+Motor del juego, mapa, autocompletado, modo ciego, lugares icónicos, dibujo estilo navegador, cruces a distinto nivel, camino final animado, la reestructuración en modos con menú principal y la cobertura de lugares por comuna (84 → 216). Todo el detalle en `fase2-prototipo.md`.
 
 ### Fase 4 — Deploy ✅ (2026-08-25)
 Publicado en **https://juanisenin.github.io/streetjoin/** desde el repo

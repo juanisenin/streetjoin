@@ -666,3 +666,96 @@ Cinco corridas seguidas en verde.
 `window.game.__dbg` ahora expone `crossPoints`, `streetGraph`, `segDist`, `geoOf` e `INT`.
 Sin eso, diagnosticar esto habría sido adivinar: la medición es la que descartó los huecos
 entre calles y señaló el par exacto.
+
+## Lugares por comuna: de 84 a 216 (2026-08-27)
+
+**El problema, medido.** Cruzando los 84 lugares con los límites comunales de la RM:
+35 estaban en la comuna de Santiago, 10 en Providencia, y **16 comunas del Gran
+Santiago no tenían ninguno** (Conchalí, Quilicura, Renca, Cerro Navia, Quinta Normal,
+Cerrillos, Lo Espejo, Pedro Aguirre Cerda, El Bosque, La Granja, San Ramón, La Pintana,
+San Bernardo, Colina, Padre Hurtado, Calera de Tango). Otras nueve tenían exactamente
+uno. El modo principal es *lugares a ciegas*, así que eso no era un detalle del dataset:
+era la mitad de la ciudad que nunca aparecía en un puzzle.
+
+**Criterio.** La periferia no tiene hitos turísticos, y esperar a que los tenga es
+quedarse con el mapa de siempre. Lo que sí tiene toda comuna es **referencias de barrio**:
+la municipalidad, el mall, el parque grande, el estadio municipal, el cementerio, el
+hospital. Ese es el filtro que se usó — reconocible para quien vive ahí, no
+necesariamente para un turista. Resultado: **216 lugares en 35 comunas, ninguna con
+menos de 3.**
+
+Los candidatos no se escribieron a mano: se **minaron del propio extracto OSM**,
+puntuando cada POI con nombre por tipo y por superficie, y listándolos por comuna para
+elegir. De ahí salieron cosas que no estaban en la lista original y son buenas piezas de
+juego: el MIM en La Granja, Lo Valledor en PAC, el Cementerio Metropolitano en Lo Espejo,
+el Parque Bicentenario de Cerrillos, Cerro Chena en San Bernardo, el Parque La Bandera en
+San Ramón.
+
+### Cambios en el pipeline
+
+1. **El filtro de POIs se quedaba corto.** `amenity=townhall` y `college` no estaban, y
+   son justamente la municipalidad y las escuelas matrices (Aviación, Carabineros,
+   Militar); `leisure=nature_reserve` tampoco, y ahí viven el Bosque Panul y el humedal de
+   Quilicura. Se agregaron esos, más `landuse=recreation_ground`, `place=square`,
+   `cinema` y `courthouse`. Sin esto, 11 de las entradas nuevas quedaban sin match.
+2. **Dedup por (nombre, comuna), no por nombre.** Con 84 lugares céntricos los nombres
+   eran únicos; con 216 no: hay un *Parque Juan Pablo II* en Las Condes y otro en Puente
+   Alto. La clave del diccionario `found` pasó a ser el par.
+3. **Referencia (lon, lat) en todas las entradas nuevas.** El desempate por "el nombre
+   OSM más parecido en largo al patrón" alcanzaba para una lista corta; con nombres
+   genéricos repartidos por la ciudad (*Estadio Municipal…*, *Plaza de…*) no. La
+   referencia sale del propio POI elegido al minar, así que no hay coordenadas escritas a
+   mano.
+4. **Un radio de enganche más (700 m).** `Parque Metropolitano Cerros de Renca` tiene su
+   borde a más de 450 m de la calle más cercana y se descartaba por "sin calles cerca".
+   De paso se sacó de la lista el POI `natural=peak` "Cerro Renca", que es la cumbre y no
+   tiene calle alguna alrededor; la entrada nueva apunta al polígono del parque.
+5. **`comuna_de(lon, lat)`** con `comunas-rm.geojson` (los límites de las 52 comunas de la
+   RM, simplificados a ~40 m: 304 KB, 99,7 % de coincidencia con el original sobre 4.000
+   puntos de prueba). La comuna se calcula al construir y viaja en el JSON.
+
+El registro de un lugar pasó a ser `[lon, lat, nombre, ícono, [calles], comuna]`, y el
+script imprime al final el conteo por comuna: el objetivo del dataset es que ninguna
+quede vacía, no maximizar el total.
+
+### La comuna, en el juego
+
+Un lugar céntrico se explica solo; *Parque Las Palmeras* no. A ciegas, sin saber que está
+en Renca, el puzzle no es difícil: es imposible. Así que la comuna se muestra **debajo del
+nombre** en los tres lugares donde aparece un lugar — el globo del extremo A/B, el
+enunciado ("Conecta …") y los íconos del modo elegir-puntos— en una segunda línea más
+chica y tenue (`.com`). `endpoint()` recibe un sexto argumento `sub` y `lmkEnd(l)`
+centraliza la conversión lugar → extremo.
+
+### `MAX_KM_PLACES = 13`
+
+Efecto secundario que no era obvio: con lugares en las 35 comunas, dos puntos al azar
+pueden quedar a 35 km, y el grafo **los une igual** en 3 o 4 calles (Vespucio + una
+autopista + una avenida). El puzzle no se vuelve más difícil, se vuelve otro juego: deja
+de ser "qué calles conectan estos dos barrios" y pasa a ser "qué autopista tomo".
+
+Medición sobre 400 semillas (`web/measure_places.mjs`, nuevo):
+
+| | antes (84 lugares) | sin tope (216) | con tope de 13 km |
+|---|---|---|---|
+| mediana | 6,4 km | 10,6 km | 8,4 km |
+| p90 | 14,3 km | 20,3 km | 11,7 km |
+| máximo | 28,8 km | 37,2 km | 13,0 km |
+| óptimo = 3 calles | 43 % | 29 % | 43 % |
+| comunas que aparecen | 21 | 35 | **35** |
+
+El tope devuelve la escala y la dificultad de antes sin perder cobertura: los pares
+periféricos que ahora existen (Colina con Quilicura, Maipú con Cerrillos, La Pintana con
+El Bosque) están todos por debajo de 13 km. Es un puzzle *dentro* de la ciudad, no un
+cruce de la ciudad entera.
+
+### Verificación
+
+- `web/test_blind.mjs` completo en verde, incluidas las 40 partidas del camino final y
+  las 60 del desvío de ruta (máximo 60 m, mediana 20 m).
+- Auditoría impresa del pipeline: los 216 emparejamientos lugar → POI de OSM revisados
+  uno por uno, más las calles asociadas a cada lugar nuevo (que son las que de verdad lo
+  bordean: el MIM cuelga de Punta Arenas y Estadio, Lo Valledor de General Velásquez y
+  Avenida Maipú).
+- Capturas en escritorio y en viewport de celular con la comuna en el enunciado y en los
+  globos, y del modo elegir-puntos con los 216 íconos (se dibujan en ~420 ms).
