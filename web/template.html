@@ -157,6 +157,9 @@
   .leaflet-container { font: inherit; }
   .ptlabel.epA { background: #00654A; }
   .ptlabel.epB { background: #8A3D00; }
+  .com { display: block; font-size: .82em; font-weight: 400; opacity: .72;
+         letter-spacing: .02em; }
+  b .com { font-weight: 400; }
   .ptlabel { background: var(--ink); color: #fff; border-radius: 8px; padding: 2px 8px;
              font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
 
@@ -315,7 +318,7 @@ function keysOf(input) {
 
 // ---------- Índices ----------
 const S = CITY.streets, INT = CITY.intersections;
-// Lugares icónicos: [lon, lat, nombre, ícono, [calles vecinas]]
+// Lugares icónicos: [lon, lat, nombre, ícono, [calles vecinas], comuna]
 const LMK = CITY.landmarks || [];
 const keyIndex = new Map();          // clave normalizada -> [street idx]
 const SPACELESS = new Set();         // variantes sin espacios (no mostrarlas como alias)
@@ -358,17 +361,28 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 
 // Un "extremo" del puzzle tiene la misma forma que una intersección
 // ([lon, lat, calles]) y puede llevar etiqueta e ícono si es un lugar.
-function endpoint(lon, lat, streets, label, icon) {
+function endpoint(lon, lat, streets, label, icon, sub) {
   const e = [lon, lat, streets];
-  if (label) { e.label = label; e.icon = icon; }
+  if (label) { e.label = label; e.icon = icon; e.sub = sub; }
   return e;
 }
+// Un lugar (l) -> extremo de puzzle. La comuna va aparte del nombre: con más de
+// 200 lugares repartidos por todo el Gran Santiago, "Parque Las Palmeras" no
+// dice nada sin "Renca", y hay nombres que se repiten entre comunas.
+const lmkEnd = l => endpoint(l[0], l[1], l[4], l[2], l[3], l[5]);
+
+// Con lugares en las 35 comunas, dos puntos al azar pueden quedar a 35 km: el
+// grafo los une igual en 3 o 4 calles (Vespucio + una autopista + una avenida),
+// pero eso es otro juego. El tope mantiene los puzzles a escala de ciudad
+// caminable y deja igual los pares dentro de la periferia (Colina con Quilicura,
+// Maipú con Cerrillos), que es de lo que se trata haber llenado las comunas.
+const MAX_KM_PLACES = 13;
 
 function newPuzzlePlaces(seed) {
   const rnd = mulberry(seed);
   for (let tries = 0; tries < 40; tries++) {
     const a = LMK[Math.floor(rnd() * LMK.length)];
-    const A = endpoint(a[0], a[1], a[4], a[2], a[3]);
+    const A = lmkEnd(a);
     const dO = bfs(A[2]);
     const cands = [];
     for (const b of LMK) {
@@ -378,12 +392,13 @@ function newPuzzlePlaces(seed) {
       const opt = Math.min(...ds);
       if (opt < 3 || opt > 7) continue;
       const dx = (a[0] - b[0]) * 92000, dy = (a[1] - b[1]) * 111000;
-      if (Math.hypot(dx, dy) < 1200) continue;
+      const m = Math.hypot(dx, dy);
+      if (m < 1200 || m > MAX_KM_PLACES * 1000) continue;
       cands.push([b, opt]);
     }
     if (!cands.length) continue;
     const [b, opt] = cands[Math.floor(rnd() * cands.length)];
-    const B = endpoint(b[0], b[1], b[4], b[2], b[3]);
+    const B = lmkEnd(b);
     return { A, B, dO, dD: bfs(B[2]), opt };
   }
   return null;
@@ -1199,6 +1214,12 @@ function cornerName(inter) {
   return named.join(" / ");
 }
 
+// El nombre con la comuna en segunda línea, para el globo del mapa y el enunciado.
+function cornerHTML(inter) {
+  const n = esc(cornerName(inter));
+  return inter.sub ? `${n}<span class="com">${esc(inter.sub)}</span>` : n;
+}
+
 function start(seed = seedRnd()) { startWith(newPuzzle(seed), seed); }
 
 function addMarker(inter, label, fill = "#1c1917") {
@@ -1210,7 +1231,7 @@ function addMarker(inter, label, fill = "#1c1917") {
         renderer: R.pts,          // por encima de las calles dibujadas
         radius: 8, color: "#fff", weight: 3, fillColor: fill, fillOpacity: 1,
       }).addTo(map);
-  m.bindTooltip(`${label} · ${cornerName(inter)}`,
+  m.bindTooltip(`${label} · ${cornerHTML(inter)}`,
     { permanent: true, direction: "top", className: "ptlabel ep" + label,
       offset: [0, inter.icon ? -14 : -10] });
   markers.push(m);
@@ -1228,10 +1249,11 @@ function drawLandmarks(on) {
     const m = L.marker([lat, lon], { icon: L.divIcon({
       html: `<div class="lmk pickable">${icon}</div>`, className: "",
       iconSize: [28, 28], iconAnchor: [14, 14] }) })
-      .bindTooltip(name, { direction: "top", className: "ptlabel", offset: [0, -14] });
+      .bindTooltip(`${esc(name)}<span class="com">${esc(l[5] || "")}</span>`,
+                   { direction: "top", className: "ptlabel", offset: [0, -14] });
     m.on("click", ev => {                   // tocar el ícono lo elige
       L.DomEvent.stopPropagation(ev);
-      choosePoint(endpoint(l[0], l[1], l[4], l[2], l[3]));
+      choosePoint(lmkEnd(l));
     });
     return m;
   })).addTo(map);
@@ -1282,7 +1304,7 @@ function startWith(p, seed) {
   applyTiles();
   addMarker(game.A, "A", ENDS.A.hex); addMarker(game.B, "B", ENDS.B.hex);
   map.fitBounds(L.latLngBounds([game.A[1], game.A[0]], [game.B[1], game.B[0]]).pad(0.35));
-  els.obj.innerHTML = `Conecta <b>${cornerName(game.A)}</b> con <b>${cornerName(game.B)}</b>`;
+  els.obj.innerHTML = `Conecta <b>${cornerHTML(game.A)}</b> con <b>${cornerHTML(game.B)}</b>`;
   els.chips.innerHTML = ""; els.msg.textContent = "";
   els.guess.value = ""; els.guess.disabled = false;
   $("res").style.display = "none"; showOverlay(false);
@@ -1549,7 +1571,7 @@ function showOverlay(on) { els.overlay.style.display = on ? "flex" : "none"; }
 // ---------- Autocompletar ----------
 let selIdx = -1, sugIdxs = [];
 function hideSuggest() { els.suggest.style.display = "none"; selIdx = -1; sugIdxs = []; }
-const esc = t => t.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 function suggestions(qraw) {
   const q = normalize(qraw);
@@ -1921,7 +1943,7 @@ function setPicking(on) {
   } else if (game) {
     // cancelado: restaura la partida que estaba en curso
     if (!markers.length) drawBoard();
-    els.obj.innerHTML = `Conecta <b>${cornerName(game.A)}</b> con <b>${cornerName(game.B)}</b>`;
+    els.obj.innerHTML = `Conecta <b>${cornerHTML(game.A)}</b> con <b>${cornerHTML(game.B)}</b>`;
     els.guess.disabled = game.over;
   }
 }
@@ -1939,7 +1961,7 @@ function nearestLandmark(latlng) {          // lugar icónico más cercano
     const d = dx * dx + dy * dy;
     if (d < bestD) { bestD = d; best = l; }
   }
-  return best && endpoint(best[0], best[1], best[4], best[2], best[3]);
+  return best && lmkEnd(best);
 }
 
 // Elegir un extremo (sirve igual para esquinas y para lugares)

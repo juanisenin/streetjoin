@@ -32,15 +32,19 @@ tildes, prefijos y abreviaturas: "alameda" → Avenida Libertador Bernardo O'Hig
 ```
 data-pipeline/
   build_city.py     OSM (.osm.pbf) -> city.json (grafo de calles)
-  city.json         15.280 calles del Gran Santiago (2,1 MB)
+  build_landmarks.py  lista curada de lugares -> clave "landmarks" de city.json
+  comunas-rm.geojson  límites comunales de la RM (para etiquetar cada lugar)
+  city.json         15.280 calles y 216 lugares del Gran Santiago (2,5 MB)
 index.html          build autocontenido: lo que publica GitHub Pages
 web/
   template.html     fuente del juego (HTML + CSS + JS)
   build_web.py      template + Leaflet + city.json -> index.html
   test_blind.mjs    tests end-to-end con Playwright
+  measure_places.mjs  calibración del modo Lugares (distancia, dificultad, comunas)
 docs/
   fase1-datos.md    decisiones y formato de los datos
   fase2-prototipo.md  diseño del prototipo, testing y optimizaciones
+  fase4-deploy.md   publicación en GitHub Pages
   plan.md           plan general del proyecto por fases
 ```
 
@@ -48,8 +52,9 @@ docs/
 
 ```bash
 # 1. datos (requiere el extracto .osm.pbf; ver docs/fase1-datos.md)
-pip install pyrosm networkx shapely numpy
+pip install pyrosm networkx shapely numpy geopandas
 cd data-pipeline && python3 build_city.py Santiago.osm.pbf city.json
+python3 build_landmarks.py Santiago.osm.pbf city.json   # lugares icónicos
 
 # 2. build web (requiere leaflet en node_modules)
 npm install leaflet@1.9.4
