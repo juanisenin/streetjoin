@@ -47,7 +47,42 @@ ningún botón queda por debajo de 40 px de lado.
 - Capturas en viewport de iPhone del menú, la partida y el autocompletar.
 - El commit publicado por Pages coincide con el local.
 
+## La API key de CARTO (2026-08-27)
+
+A los dos días de publicar, el mapa apareció con una marca de agua repetida
+**"API KEY REQUIRED"**: CARTO empezó a exigir key para sus teselas **raster**. No es un
+corte —las teselas siguen sirviéndose— pero la marca queda encima de todo el mapa.
+
+La key es **gratis y sin cuenta**: un formulario en carto.com/basemaps/apikey (email,
+dominio, para qué es) y llega por mail al instante. Cubre **5.000.000 de teselas por mes**
+entre raster y vector, a cambio de mantener visible la atribución a CARTO y OpenStreetMap
+—que el juego ya tenía.
+
+En el código son tres líneas, con la key en una constante única:
+
+```js
+const CARTO_KEY     = "cb1_…";   // va a la vista en el HTML público a propósito
+const TILE_LABELS   = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=" + CARTO_KEY;
+const TILE_NOLABELS = "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png?key=" + CARTO_KEY;
+```
+
+La key no es un secreto: identifica al proyecto ante CARTO y está atada al dominio
+declarado. Publicarla en el HTML es su uso previsto.
+
+**Ojo con el caché al verificar**: el navegador y el CDN guardan teselas, así que después
+del deploy hace falta una recarga forzada para ver el cambio.
+
+### Nota para más adelante
+
+CARTO avisa en el mail que **el raster se va a retirar** y recomienda pasar a vector
+(más nítido a cualquier zoom, datos más frescos, restyleable en el browser). Eso implicaría
+cambiar Leaflet por MapLibre GL, que no es menor: el juego usa panes de canvas propios,
+un parche sobre `L.Canvas.prototype._fillStroke` para los degradados y varias APIs privadas
+de Leaflet. No es urgente, pero es la razón por la que conviene no seguir profundizando
+sobre las internas de Leaflet más de lo necesario.
+
 ## Pendiente
 
 - Jugarlo en un celular de verdad (el test es emulación, no reemplaza el dedo).
 - Fase 3 — desafío diario: es lo que le falta para que tenga sentido volver todos los días.
+- Eventualmente, migrar a las teselas vectoriales de CARTO antes de que retiren el raster.
